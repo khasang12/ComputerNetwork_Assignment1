@@ -73,17 +73,22 @@ class Client:
 
     def setupMovie(self):
         """Setup button handler."""
-        self.sendRtspRequest(self.SETUP)
+        if self.state == self.INIT:
+            self.sendRtspRequest(self.SETUP)
 
 
     def exitClient(self):
         """Teardown button handler."""
         self.sendRtspRequest(self.TEARDOWN)
+        self.master.destroy()
+        cache_name = CACHE_FILE_NAME + self.sessionId + CACHE_FILE_EXT
+        os.remove(cache_name)
 
 
     def pauseMovie(self):
         """Pause button handler."""
-        self.sendRtspRequest(self.PAUSE)
+        if self.state == self.PLAYING:
+            self.sendRtspRequest(self.PAUSE)
 
 
     def playMovie(self):
@@ -143,3 +148,8 @@ class Client:
     def handler(self):
         """Handler on explicitly closing the GUI window."""
         # TODO
+        self.pauseMovie()
+        if tkinter.messagebox.askokcancel("Confirmation", "Do you want to exit the client?"):
+            self.exitClient() # Exit client
+        else:
+            self.playMovie() # Continue to play movie
