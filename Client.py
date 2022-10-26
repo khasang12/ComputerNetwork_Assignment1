@@ -130,8 +130,32 @@ class Client:
 
     def parseRtspReply(self, data):
         """Parse the RTSP reply from the server."""
-
         # TODO
+        lines = data.split('\n')
+        seqNum = int(lines[1].split(' ')[1])
+
+        if seqNum == self.rtspSeq:
+            session = int(lines[2].split(' ')[1])
+            # Set RSTP session ID
+            self.sessionId == session
+            if self.sessionId == session and int(lines[0].split(' ')[1]) == 200:
+                if self.requestSent == self.SETUP:
+                    # Update RSTP state
+                    self.state = self.READY
+                    self.openRtpPort()
+                elif self.requestSent == self.PLAY:
+                    # Update RSTP state
+                    self.state = self.PLAYING
+                elif self.requestSent == self.PAUSE:
+                    # Update RSTP state
+                    self.state = self.READY
+                    # Create new thread when last play thread is exit
+                    self.playEvent.set()
+                elif self.requestSent == self.TEARDOWN:
+                    # Update RSTP state
+                    self.state = self.INIT
+                    self.teardownAcked = 1
+
 
     def openRtpPort(self):
         """Open RTP socket binded to a specified port."""
