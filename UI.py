@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import font
 import re
 import tkinter.messagebox
-from utils import * 
+from utils.server import * 
 from PIL import ImageTk, Image
 
 class FirstPage(Tk):
