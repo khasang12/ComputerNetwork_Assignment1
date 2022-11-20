@@ -1,26 +1,55 @@
 import threading
-import socket
+import socket, select
+from tkinter import *
+from tkinter import font
+from tkinter import ttk
+import sys
+FORMAT = "utf-8"
+
 
 # This is Server Side of The Peer
 # This will contain an Array of All Client Connection
 # This Will Act As A Chat Room
 class PeerServer(threading.Thread):
-    ClientList = [] # List Of Client Connection
+    ClientList = {} # List Of Client Connection IP:Connection 
     peerIP = None
     peerPort = None
-
-    def __init__(self) -> None:
+    def __init__(self,peerIp,peerPort) -> None:
         threading.Thread.__init__(self)
         self.CliendList = []
+        self.peerIP = peerIp
+        self.peerPort = peerPort
+
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((peerIp, peerPort))
+
+    def run(self):
+        self.server.listen(100)
+        print("Start Listening on Port: {}".format(port))
+        inputs = [self.server]
+
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # Comment This one To act as Client because Server Thread will Take place std in
+        while(inputs):
+            readable, writable, exceptional = select.select(inputs, [], [])
+            for s in readable:
+                if s is self.server:
+                        # accepts the connection, and adds its connection socket to the inputs list
+                        # so that we can monitor that socket as well
+                        conn, addr = s.accept()
+                        self.createClientThread(conn)
+
     def createClientThread(self,conn) :
         # Create A Thread For Handle That Connection
         # May be a new window
-        PeerClient().start()
+        PeerClient(self.peerIP,conn).start()
         self.CliendList.append(conn)
         pass
-    def sendMsg(conn):
+    def sendToAll(self,conn):
         pass
-    def closeConn(conn):
+    def closeConn(self,conn):
+        pass
+    def getConn(self, conn):
         pass
 
 # This is Client Side Of the Peer
@@ -183,19 +212,26 @@ class PeerClient(threading.Thread):
 # This peer will listen request sent from other Peer
 
 class Peer:
-    HandleConnection = None
-    peerIp = None
-    peerPort = None
+
     def __init__(self,peerIp, peerPort) -> None:
         self.peerIp = peerIp
         self.peerPort = peerPort
-        self.HandleConnection=PeerServer()
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.HandleConnection=PeerServer(peerIp,peerPort)
+        self.HandleConnection.run()
 
     def run(self):
-        pass
+        while(True):
+            choose = input("Enter Your Choose")
+
+            if(choose == "1" ):
+                [ip,port] = input("Connect to IP Port: ").strip().split(" ")
+                conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                conn.connect((ip, int(port)))
+                self.HandleConnection.createClientThread(conn)
+
 
 if __name__ == "__main__":
-    pass
+    [ip,port] = input("IP Port: ").strip().split(" ")
+    Peer(ip,int(port)).run()
 
 
