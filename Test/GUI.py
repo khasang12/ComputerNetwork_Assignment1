@@ -1,40 +1,40 @@
-import threading
+# import all the required  modules
 import socket
+import threading
+from tkinter import *
+from tkinter import font
+from tkinter import ttk
+ 
 
-# This is Server Side of The Peer
-# This will contain an Array of All Client Connection
-# This Will Act As A Chat Room
-class PeerServer(threading.Thread):
-    ClientList = [] # List Of Client Connection
-    peerIP = None
-    peerPort = None
-
-    def __init__(self) -> None:
-        threading.Thread.__init__(self)
-        self.CliendList = []
-    def createClientThread(self,conn) :
-        # Create A Thread For Handle That Connection
-        # May be a new window
-        PeerClient().start()
-        self.CliendList.append(conn)
-        pass
-    def sendMsg(conn):
-        pass
-    def closeConn(conn):
-        pass
-
-# This is Client Side Of the Peer
-# Request and send Message Chat to Other Peer
-# This handle Each Connection
-class PeerClient(threading.Thread):
-     # constructor method
+ 
+PORT = 1
+SERVER = "127.0.0.1"
+ADDRESS = (SERVER, PORT)
+FORMAT = "utf-8"
+ 
+# Create a new conn socket
+# and connect to the server
+conn1 = socket.socket(socket.AF_INET,
+                       socket.SOCK_STREAM)
+conn1.bind(('127.0.0.1',2))
+conn1.connect(ADDRESS)
+ 
+conn2 = socket.socket(socket.AF_INET,
+                       socket.SOCK_STREAM)
+conn2.bind(('127.0.0.2',3))
+conn2.connect(ADDRESS)
+ 
+ 
+# GUI class for the chat
+class GUI(threading.Thread):
+    # constructor method
     def __init__(self, name,conn):
         threading.Thread.__init__(self)
         # chat window which is currently hidden
         self.name = name
         self.conn = conn
 
-
+ 
     def run(self) :
         self.Window = Tk()
         self.Window.withdraw()
@@ -175,27 +175,13 @@ class PeerClient(threading.Thread):
             message = (f"{self.name}: {self.msg}")
             self.conn.send(message.encode(FORMAT))
             break
+ 
+ 
+# create a GUI class object
+chat1 = GUI(name="Vinh",conn=conn1)
+chat2 = GUI(name = 'An', conn=conn2)
+chat1.start()
+chat2.start()
 
-
-
-# This is The Peer Main Class act as A routing
-# It will contain Server side and Client Side
-# This peer will listen request sent from other Peer
-
-class Peer:
-    HandleConnection = None
-    peerIp = None
-    peerPort = None
-    def __init__(self,peerIp, peerPort) -> None:
-        self.peerIp = peerIp
-        self.peerPort = peerPort
-        self.HandleConnection=PeerServer()
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    def run(self):
-        pass
-
-if __name__ == "__main__":
-    pass
-
-
+chat1.join()
+chat2.join()
