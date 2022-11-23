@@ -11,37 +11,44 @@ FORMAT = "utf-8"
 # This will contain an Array of All Client Connection
 # This Will Act As A Chat Room
 class PeerServer(threading.Thread):
-    ClientList = {} # List Of Client Connection IP:Connection 
+    ClientList = [] # List Of Client Connection IP:Connection 
     peerIP = None
     peerPort = None
     def __init__(self,peerIp,peerPort) -> None:
         threading.Thread.__init__(self)
         self.CliendList = []
         self.peerIP = peerIp
-        self.peerPort = peerPort
+        self.listenPort = peerPort
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind((peerIp, peerPort))
+        self.server.bind((peerIp, self.listenPort))
+
 
     def run(self):
         self.server.listen(100)
-        print("Start Listening on Port: {}".format(port))
+        print("Start Listening on Port: {}".format(self.listenPort))
         inputs = [self.server]
 
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # Comment This one To act as Client because Server Thread will Take place std in
         while(inputs):
-            readable, writable, exceptional = select.select(inputs, [], [])
-            for s in readable:
-                if s is self.server:
-                        # accepts the connection, and adds its connection socket to the inputs list
-                        # so that we can monitor that socket as well
-                        conn, addr = s.accept()
-                        self.createClientThread(conn)
+            try:
+                readable, writable, exceptional = select.select(inputs, [], [])
+                for s in readable:
+                    if s is self.server:
+                            conn, addr = s.accept()
+                            print(addr)
+                            self.createClientThread(conn)
+                            self.ClientList.append(conn)
+                    else:
+                        print(s)
+            except Exception as e:
+                print(e)
 
     def createClientThread(self,conn) :
         # Create A Thread For Handle That Connection
         # May be a new window
+        print(conn)
         PeerClient(self.peerIP,conn).start()
         self.CliendList.append(conn)
         pass
@@ -55,6 +62,7 @@ class PeerServer(threading.Thread):
 # This is Client Side Of the Peer
 # Request and send Message Chat to Other Peer
 # This handle Each Connection
+# This Class Maybe Handle Transfer
 class PeerClient(threading.Thread):
      # constructor method
     def __init__(self, name,conn):
@@ -179,7 +187,7 @@ class PeerClient(threading.Thread):
         while True:
             try:
                 message = self.conn.recv(1024).decode(FORMAT)
- 
+                print(message)
                 # if the messages from the server is NAME send the conn's name
                 if message == 'NAME':
                     self.conn.send(self.name.encode(FORMAT))
@@ -202,6 +210,8 @@ class PeerClient(threading.Thread):
         self.textCons.config(state=DISABLED)
         while True:
             message = (f"{self.name}: {self.msg}")
+            print(message)
+            
             self.conn.send(message.encode(FORMAT))
             break
 
@@ -216,22 +226,94 @@ class Peer:
     def __init__(self,peerIp, peerPort) -> None:
         self.peerIp = peerIp
         self.peerPort = peerPort
+
+        UI = threading.Thread(target=self.runUI)
+        UI.start()
         self.HandleConnection=PeerServer(peerIp,peerPort)
+        self.HandleConnection.daemon=True
         self.HandleConnection.run()
+
 
     def run(self):
         while(True):
             choose = input("Enter Your Choose")
-
             if(choose == "1" ):
                 [ip,port] = input("Connect to IP Port: ").strip().split(" ")
                 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 conn.connect((ip, int(port)))
                 self.HandleConnection.createClientThread(conn)
 
+    # This is for testing purpose
+    def runUI(self): 
+        self.Window = Tk()
+        self.Window.withdraw()
+        self.goAhead("Haha")
+        self.Window.mainloop()
+
+    def goAhead(self, name):
+        self.layout(name)
+        # the thread to receive messages
+ 
+    # The main layout of the chat
+    def layout(self, name):
+ 
+        self.name = name
+        # to show chat window
+        self.Window.deiconify()
+        self.Window.title("Hello User {}".format(self.peerIp))
+
+        self.Window.configure(width=470,
+                              height=150,
+                              bg="#17202A")
+                              
+        self.labelBottom = Label(self.Window,
+                                 bg="#ABB2B9",
+                                 height=80)
+ 
+        self.labelBottom.place(relwidth=1,
+                               rely=0)
+ 
+        self.entryMsg = Entry(self.labelBottom,
+                              bg="#2C3E50",
+                              fg="#EAECEE",
+                              font="Helvetica 13")
+ 
+        # place the given widget
+        # into the gui window
+        self.entryMsg.place(relwidth=0.74,
+                            relheight=0.06,
+                            rely=0.008,
+                            relx=0.011)
+ 
+        self.entryMsg.focus()
+ 
+        # create a Send Button
+        self.buttonMsg = Button(self.labelBottom,
+                                text="Send",
+                                font="Helvetica 10 bold",
+                                width=20,
+                                bg="#ABB2B9",
+                                command=lambda: self.sendButton(self.entryMsg.get()))
+ 
+        self.buttonMsg.place(relx=0.77,
+                             rely=0.008,
+                             relheight=0.06,
+                             relwidth=0.22)
+ 
+    # function to basically start the thread for sending messages
+    def sendButton(self, msg):
+        self.msg = msg
+        self.entryMsg.delete(0, END)
+        [ip,port] = self.msg.strip().split(" ")
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.connect((ip, int(port)))
+        self.HandleConnection.createClientThread(conn)
+
 
 if __name__ == "__main__":
     [ip,port] = input("IP Port: ").strip().split(" ")
+    # ip = socket.gethostbyname(socket.gethostname())
+    print(ip)
     Peer(ip,int(port)).run()
 
 
