@@ -3,7 +3,10 @@ import socket, select
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
-import sys
+from tkinter import messagebox
+import sys,json
+from protocol import Encode
+
 FORMAT = "utf-8"
 
 
@@ -37,19 +40,18 @@ class PeerServer(threading.Thread):
                 for s in readable:
                     if s is self.server:
                             conn, addr = s.accept()
-                            print(addr)
-                            self.createClientThread(conn)
+                            self.createClientThread(conn,addr[0],addr[1])
                             self.ClientList.append(conn)
                     else:
                         print(s)
             except Exception as e:
                 print(e)
 
-    def createClientThread(self,conn) :
+    def createClientThread(self,conn,cliIP, cliPort) :
         # Create A Thread For Handle That Connection
         # May be a new window
         print(conn)
-        PeerClient(self.peerIP,conn).start()
+        PeerClient(self.peerIP,conn,cliIP,cliPort).start()
         self.CliendList.append(conn)
         pass
     def sendToAll(self,conn):
@@ -65,11 +67,15 @@ class PeerServer(threading.Thread):
 # This Class Maybe Handle Transfer
 class PeerClient(threading.Thread):
      # constructor method
-    def __init__(self, name,conn):
+    def __init__(self, name,conn,ip,port):
         threading.Thread.__init__(self)
         # chat window which is currently hidden
         self.name = name
         self.conn = conn
+        self.cip = ip
+        self.port = port
+        self.Encoder = Encode(ip,port)
+
 
 
     def run(self) :
@@ -77,6 +83,7 @@ class PeerClient(threading.Thread):
         self.Window.withdraw()
         self.goAhead(self.name)
         self.Window.mainloop()
+    
     
 
     def goAhead(self, name):
@@ -182,23 +189,37 @@ class PeerClient(threading.Thread):
         snd = threading.Thread(target=self.sendMessage)
         snd.start()
  
-    # function to receive messages
+    def displayMessage(self,msg):
+        self.textCons.config(state=NORMAL)
+        self.textCons.insert(END,
+                                msg+"\n\n")
+
+        self.textCons.config(state=DISABLED)
+        self.textCons.see(END)
+     
+
+
+    # function to receive messages 
+    # This will handle request send from user
     def receive(self):
         while True:
             try:
                 message = self.conn.recv(1024).decode(FORMAT)
-                print(message)
-                # if the messages from the server is NAME send the conn's name
-                if message == 'NAME':
-                    self.conn.send(self.name.encode(FORMAT))
-                else:
+                message = json.loads(message)
+                # If message is request message
+                if message['type'] == 'Request':
+                    # If it is Start Chat Request
+                    if message['flag'] == "S":
+                        # Call UIn   
+                        diaglogResult = messagebox.askokcancel("There is Message Request","nah")
+                        if(diaglogResult == "yes"):
+                            self.conn.send(self.Encoder.acceptChat())
+                        else:
+                            self.conn.send(self.Encoder.declineChat())
+                            self.Window.destroy()
+                elif  message['type'] == 'M':
                     # insert messages to text box
-                    self.textCons.config(state=NORMAL)
-                    self.textCons.insert(END,
-                                         message+"\n\n")
- 
-                    self.textCons.config(state=DISABLED)
-                    self.textCons.see(END)
+                    self.displayMessage("("+message["time"]+"):"+message['msg'])
             except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -209,10 +230,8 @@ class PeerClient(threading.Thread):
     def sendMessage(self):
         self.textCons.config(state=DISABLED)
         while True:
-            message = (f"{self.name}: {self.msg}")
-            print(message)
-            
-            self.conn.send(message.encode(FORMAT))
+            message = (f"{self.name}: {self.msg}")           
+            self.conn.send(self.Encoder.sendMessage(message))
             break
 
 
@@ -226,12 +245,14 @@ class Peer:
     def __init__(self,peerIp, peerPort) -> None:
         self.peerIp = peerIp
         self.peerPort = peerPort
+        self.Encoder = Encode(self.peerIp, self.peerPort)
 
         UI = threading.Thread(target=self.runUI)
         UI.start()
         self.HandleConnection=PeerServer(peerIp,peerPort)
         self.HandleConnection.daemon=True
-        self.HandleConnection.run()
+        self.HandleConnection.start()
+    
 
 
     def run(self):
@@ -241,7 +262,16 @@ class Peer:
                 [ip,port] = input("Connect to IP Port: ").strip().split(" ")
                 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 conn.connect((ip, int(port)))
-                self.HandleConnection.createClientThread(conn)
+
+                conn.send(self.Encoder.requestChat())
+
+                msg = conn.recv(1024).decode(FORMAT)
+                msg = json.loads(msg)
+                if(msg['code']==1):
+                    self.HandleConnection.createClientThread(conn,ip,port)
+                else:
+                    print("Peer Decline Chat")
+
 
     # This is for testing purpose
     def runUI(self): 
@@ -307,13 +337,14 @@ class Peer:
         [ip,port] = self.msg.strip().split(" ")
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         conn.connect((ip, int(port)))
-        self.HandleConnection.createClientThread(conn)
+        conn.send(Encode.requestChat())
+        conn.recv(1024)
+        self.HandleConnection.createClientThread(conn,ip,port)
 
 
 if __name__ == "__main__":
     [ip,port] = input("IP Port: ").strip().split(" ")
     # ip = socket.gethostbyname(socket.gethostname())
-    print(ip)
     Peer(ip,int(port)).run()
 
 
