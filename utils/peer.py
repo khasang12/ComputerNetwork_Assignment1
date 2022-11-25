@@ -6,7 +6,7 @@ from tkinter import ttk
 from tkinter import messagebox
 import sys,json
 from protocol import Encode
-
+import logging
 FORMAT = "utf-8"
 
 
@@ -202,33 +202,35 @@ class PeerClient(threading.Thread):
     # This will handle request send from user
     def receive(self):
         while True:
-            try:
-                message = self.conn.recv(1024).decode(FORMAT)
-                message = json.loads(message)
-                # If message is request message
-                if message['type'] == 'Request':
-                    # If it is Start Chat Request
-                    if message['flag'] == "S":
-                        # Call UIn   
-                        diaglogResult = messagebox.askokcancel("There is Message Request","nah")
-                        if(diaglogResult == "yes"):
-                            self.conn.send(self.Encoder.acceptChat())
-                        else:
-                            self.conn.send(self.Encoder.declineChat())
-                            self.Window.destroy()
-                elif  message['type'] == 'M':
-                    # insert messages to text box
-                    self.displayMessage("("+message["time"]+"):"+message['msg'])
-            except:
+            # try:
+            message = self.conn.recv(1024).decode(FORMAT)
+            message = json.loads(message)
+            # If message is request message
+            if message['type'] == 'Request':
+                # If it is Start Chat Request
+                if message['flag'] == "S":
+                    # Call UIn   
+                    diaglogResult = messagebox.askokcancel("There is Message Request","{} requested chat. Accept?".format(self.cip))
+                    if(diaglogResult):
+                        self.conn.send(self.Encoder.acceptChat())
+                    else:
+                        self.conn.send(self.Encoder.declineChat())
+                        self.Window.destroy()
+            elif  message['type'] == 'M':
+                # insert messages to text box
+                self.displayMessage("("+message["time"]+"):"+message['msg'])
+            """    except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
                 self.conn.close()
                 break
+            """
 
     # function to send messages
     def sendMessage(self):
         self.textCons.config(state=DISABLED)
         while True:
+            #############
             message = (f"{self.name}: {self.msg}")           
             self.conn.send(self.Encoder.sendMessage(message))
             break
@@ -251,8 +253,6 @@ class Peer:
         self.HandleConnection.daemon=True
         self.HandleConnection.start()
     
-
-
     def run(self):
         while(True):
             choose = input("Enter Your Choose")
