@@ -7,6 +7,7 @@ from tkinter import messagebox
 import sys,json
 from protocol import Encode
 import logging
+from protocol import Encode
 FORMAT = "utf-8"
 
 
@@ -224,14 +225,14 @@ class PeerClient(threading.Thread):
                 print("An error occurred!")
                 self.conn.close()
                 break
-            """
-
+  """
     # function to send messages
     def sendMessage(self):
         self.textCons.config(state=DISABLED)
         while True:
             #############
-            message = (f"{self.name}: {self.msg}")           
+            message = (f"{self.msg}")
+            self.displayMessage(self.msg)        
             self.conn.send(self.Encoder.sendMessage(message))
             break
 
@@ -417,9 +418,8 @@ class Peer:
 # It will contain Server side and Client Side
 # This peer will listen request sent from other Peer
 START_CHECKING = False
-class Peer_Central(threading.Thread):
+class Peer_Central():
     def __init__(self):
-        threading.Thread.__init__(self)
         self.HOST = 'localhost'
         self.PORT_TCP = 3000
         self.PORT_UDP = 3004
@@ -427,11 +427,14 @@ class Peer_Central(threading.Thread):
         self.userName = None
         self.password = None
         self.ip_addr = None
-        self.socket = None
+        self.port = None
         self.CONDITION = True
         self.startTime = 0
         self.endTime = 0
         self.running = 1
+        self.friendSatus = [] # Manage User Status
+        self.HandleConnection = None # handle Connection
+        self.Encoder = None
     
     def run(self):
         # Create central socket - TCP port
@@ -464,7 +467,7 @@ class Peer_Central(threading.Thread):
     
     def runChatBox(self,otherIP, otherPort):
         # open server
-        self.HandleConnection=PeerServer(self.ip_addr,self.socket)
+        self.HandleConnection=PeerServer(self.ip_addr,self.port)
         self.HandleConnection.run()
         # 
     
@@ -505,14 +508,21 @@ class Peer_Central(threading.Thread):
         self.userName = str(input("UserName: "))
         self.password = str(input("Password: "))
         self.ip_addr = str(ip_addr)
-        self.socket = str(free_sock)
-        
-        data = str(self.userName + "," + self.password+","+self.ip_addr+","+self.socket)
+        self.port = int(free_sock)
+        self.Encoder = Encode(self.ip_addr, self.port) # Initialize Encoder
+        # Launch Peer Server to Handle Incomminng Connection
+        self.HandleConnection =  PeerServer(self.ip_addr, self.port)
+        self.HandleConnection.daemon=True
+        self.HandleConnection.start()
+
+
+        # Send Login Information To Server
+        data = str(self.userName + "," + self.password+","+self.ip_addr+","+str(self.port))
         
         self.central_client_socket.send(data.encode())
         processStatus = self.central_client_socket.recv(1024).decode()
         print(processStatus)
-        
+    
         # Assume that login is complete
         global START_CHECKING 
         START_CHECKING = True
@@ -534,9 +544,26 @@ class Peer_Central(threading.Thread):
                 self.central_client_socket.send("search".encode())
                 self.central_client_socket.send(user.encode())
                 peer_ip,peer_port = self.central_client_socket.recv(1024).decode().split(",")
+                conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                conn.connect((peer_ip, int(peer_port)))
+
+                # Send Request Chat
+                conn.send(self.Encoder.requestChat())
+
+                # Wait Until Receive
+                msg = conn.recv(1024).decode(FORMAT)
+                msg = json.loads(msg)
+                if(msg['code']==1):
+                    self.HandleConnection.createClientThread(conn,self.ip_addr,self.port)
+                else:
+                    print("Peer Decline Chat")
                 # Open Box Chat from Peer to Peer
                 break
             break
+
+
+        self.HandleConnection.join()
+            
         
 def printOnlineUsers(data):
     print ("\t\t<<< ONLINE USER LIST >>>\r")
@@ -556,7 +583,7 @@ if __name__ == "__main__":
     # [ip,port] = input("IP Port: ").strip().split(" ")
     # Peer(ip,int(port)).run()
     peer_central = Peer_Central()
-    peer_central.start()
+    peer_central.run()
     
     #[ip,port] = input("IP Port: ").strip().split(" ")
     # ip = socket.gethostbyname(socket.gethostname())
