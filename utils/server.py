@@ -7,7 +7,7 @@ import tkinter.messagebox
 import socket
 from peer import *
 import sqlite3
-
+HOST = "192.168.0.125"
 
 
 # TCPServer: Must be Opened before any peer connection begins
@@ -15,7 +15,7 @@ class TCPServer(threading.Thread):
     SOCKET_LIST = []
     def __init__(self):
         threading.Thread.__init__(self)
-        self.HOST = ''
+        self.HOST = HOST
         self.PORT = 3000
         self.server_socket = None
         self.running = 1
@@ -191,7 +191,7 @@ class CentralServer(threading.Thread):
 class UDPServer(threading.Thread):
     def __init__(self) -> None: # conn and addr are client's
         threading.Thread.__init__(self)
-        self.HOST = ''
+        self.HOST = HOST
         self.PORT = 3004
         self.server_socket = None
         self.running = 1
@@ -211,7 +211,7 @@ class UDPServer(threading.Thread):
             try:
                 userNameData = self.server_socket.recv(1024).decode()
                 userName, data = str(userNameData).split(",")
-                
+                print(userNameData)
                 if data == "Hello":
                     current = time.time()
                     self.ONLINE_LIST[userName] = current

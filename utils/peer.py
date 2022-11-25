@@ -22,7 +22,7 @@ class PeerServer(threading.Thread):
         threading.Thread.__init__(self)
         self.CliendList = []
         self.peerIP = peerIp
-        self.listenPort = peerPort
+        self.listenPort = 80
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, self.listenPort))
@@ -40,21 +40,22 @@ class PeerServer(threading.Thread):
                 readable, writable, exceptional = select.select(inputs, [], [])
                 for s in readable:
                     if s is self.server:
+                        
                             conn, addr = s.accept()
+                            print(conn)
+                            """ conn.bind((self.peerIP,0))   """                     
                             self.createClientThread(conn,addr[0],addr[1])
                             self.ClientList.append(conn)
                     else:
-                        print(s)
+                        print("Stuck Here")
             except Exception as e:
                 print(e)
 
     def createClientThread(self,conn,cliIP, cliPort) :
         # Create A Thread For Handle That Connection
         # May be a new window
-        print(conn)
         PeerClient(self.peerIP,conn,cliIP,cliPort).start()
         self.CliendList.append(conn)
-        pass
     def sendToAll(self,conn):
         pass
     def closeConn(self,conn):
@@ -93,17 +94,18 @@ class PeerClient(threading.Thread):
         rcv = threading.Thread(target=self.receive)
         rcv.start()
  
-    # The main layout of the chat
+    # The main layout of the chat 57A1F8
     def layout(self, name):
         self.name = name
         # to show chat window
         self.Window.deiconify()
         self.Window.title("CHATROOM")
-        self.Window.resizable(width=False,
+        self.Window.resizable(width=True,
                               height=False)
         self.Window.configure(width=470,
                               height=550,
-                              bg="#17202A")
+                              bg="#57A1F8")
+        # Head of The Chat
         self.labelHead = Label(self.Window,
                                bg="#17202A",
                                fg="#EAECEE",
@@ -119,31 +121,36 @@ class PeerClient(threading.Thread):
         self.line.place(relwidth=1,
                         rely=0.07,
                         relheight=0.012)
- 
+        # Chat Message
         self.textCons = Text(self.Window,
                              width=20,
                              height=2,
                              bg="#17202A",
                              fg="#EAECEE",
-                             font="Helvetica 14",
-                             padx=5,
-                             pady=5)
+                             font="Helvetica 12",
+                             padx=20,
+                             pady=5,
+                             )
  
         self.textCons.place(relheight=0.745,
                             relwidth=1,
                             rely=0.08)
- 
+                            
+        self.textCons.tag_config("send",foreground="green"
+                                ,justify=RIGHT) # Tag to change color
+        
+
         self.labelBottom = Label(self.Window,
                                  bg="#ABB2B9",
                                  height=80)
  
         self.labelBottom.place(relwidth=1,
                                rely=0.825)
- 
+        # Enter Message box
         self.entryMsg = Entry(self.labelBottom,
                               bg="#2C3E50",
                               fg="#EAECEE",
-                              font="Helvetica 13")
+                              font="Helvetica 11")
  
         # place the given widget
         # into the gui window
@@ -166,19 +173,23 @@ class PeerClient(threading.Thread):
                              rely=0.008,
                              relheight=0.06,
                              relwidth=0.22)
+
+        # create a Send Button
+        self.buttonSendFile = Button(self.labelBottom,
+                                text="File",
+                                font="Helvetica 10 bold",
+                                width=20,
+                                bg="#ABB2B9",
+                                command=lambda: self.sendButton(self.entryMsg.get()))
+ 
+        self.buttonSendFile.place(relx=0.77,
+                             rely=0.008,
+                             relheight=0.06,
+                             relwidth=0.22)
  
         self.textCons.config(cursor="arrow")
  
-        # create a scroll bar
-        scrollbar = Scrollbar(self.textCons)
- 
-        # place the scroll bar
-        # into the gui window
-        scrollbar.place(relheight=1,
-                        relx=0.974)
- 
-        scrollbar.config(command=self.textCons.yview)
- 
+
         self.textCons.config(state=DISABLED)
  
     # function to basically start the thread for sending messages
@@ -189,10 +200,14 @@ class PeerClient(threading.Thread):
         snd = threading.Thread(target=self.sendMessage)
         snd.start()
  
-    def displayMessage(self,msg):
+    def displayMessage(self,msg, send=False):
         self.textCons.config(state=NORMAL)
-        self.textCons.insert(END,
-                                msg+"\n\n")
+        if(send):
+            self.textCons.insert(END,
+                                    msg+"\n\n","send")
+        else:
+             self.textCons.insert(END,
+                                    msg+"\n\n")
 
         self.textCons.config(state=DISABLED)
         self.textCons.see(END)
@@ -229,188 +244,12 @@ class PeerClient(threading.Thread):
     # function to send messages
     def sendMessage(self):
         self.textCons.config(state=DISABLED)
-        while True:
+        while True and self.msg != "":
             #############
             message = (f"{self.msg}")
-            self.displayMessage(self.msg)        
+            self.displayMessage(self.msg, send=True)        
             self.conn.send(self.Encoder.sendMessage(message))
             break
-
-
-
-# This is The Peer Main Class act as A routing
-# It will contain Server side and Client Side
-# This peer will listen request sent from other Peer
-
-class Peer:
-    def __init__(self,peerIp, peerPort) -> None:
-        self.peerIp = peerIp
-        self.peerPort = peerPort
-        self.Encoder = Encode(self.peerIp, self.peerPort)
-
-        UI = threading.Thread(target=self.runUI)
-        UI.start()
-        self.HandleConnection=PeerServer(peerIp,peerPort)
-        self.HandleConnection.daemon=True
-        self.HandleConnection.start()
-    
-    def run(self):
-        while(True):
-            choose = input("Enter Your Choose")
-            if(choose == "1" ):
-                [ip,port] = input("Connect to IP Port: ").strip().split(" ")
-                conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                conn.connect((ip, int(port)))
-
-                conn.send(self.Encoder.requestChat())
-
-                msg = conn.recv(1024).decode(FORMAT)
-                msg = json.loads(msg)
-                if(msg['code']==1):
-                    self.HandleConnection.createClientThread(conn,ip,port)
-                else:
-                    print("Peer Decline Chat")
-    # This is for testing purpose
-    def runUI(self): 
-        self.Window = Tk()
-        self.Window.withdraw()
-        self.goAhead("Haha")
-        self.Window.mainloop()
-
-    def goAhead(self, name):
-        self.layout(name)
-        # the thread to receive messages
-    # The main layout of the chat
-    def layout(self, name):
-        self.name = name
-        # to show chat window
-        self.Window.deiconify()
-        self.Window.title("Hello User {}".format(self.peerIp))
-
-        self.Window.configure(width=470,
-                              height=150,
-                              bg="#17202A")
-                              
-        self.labelBottom = Label(self.Window,
-                                 bg="#ABB2B9",
-                                 height=80)
-        self.labelBottom.place(relwidth=1,
-                               rely=0)
-        self.entryMsg = Entry(self.labelBottom,
-                              bg="#2C3E50",
-                              fg="#EAECEE",
-                              font="Helvetica 13")
-
-        # place the given widget
-        # into the gui window
-        self.entryMsg.place(relwidth=0.74,
-                            relheight=0.06,
-                            rely=0.008,
-                            relx=0.011)
-
-        self.entryMsg.focus()
-
-        # create a Send Button
-        self.buttonMsg = Button(self.labelBottom,
-                                text="Send",
-                                font="Helvetica 10 bold",
-                                width=20,
-                                bg="#ABB2B9",
-                                command=lambda: self.sendButton(self.entryMsg.get()))
-
-        self.buttonMsg.place(relx=0.77,
-                             rely=0.008,
-                             relheight=0.06,
-                             relwidth=0.22)
-        
-    # function to basically start the thread for sending messages
-    def sendButton(self, msg):
-        self.msg = msg
-        self.entryMsg.delete(0, END)
-        [ip,port] = self.msg.strip().split(" ")
-        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        conn.connect((ip, int(port)))
-        conn.send(Encode.requestChat())
-        conn.recv(1024)
-        self.HandleConnection.createClientThread(conn,ip,port)
-
-        conn.send(self.Encoder.requestChat())
-
-        msg = conn.recv(1024).decode(FORMAT)
-        msg = json.loads(msg)
-        if(msg['code']==1):
-            self.HandleConnection.createClientThread(conn,ip,port)
-        else:
-            print("Peer Decline Chat")
-
-
-    # This is for testing purpose
-    def runUI(self): 
-        self.Window = Tk()
-        self.Window.withdraw()
-        self.goAhead("Haha")
-        self.Window.mainloop()
-
-    def goAhead(self, name):
-        self.layout(name)
-        # the thread to receive messages
- 
-    # The main layout of the chat
-    def layout(self, name):
- 
-        self.name = name
-        # to show chat window
-        self.Window.deiconify()
-        self.Window.title("Hello User {}".format(self.peerIp))
-
-        self.Window.configure(width=470,
-                              height=150,
-                              bg="#17202A")
-                              
-        self.labelBottom = Label(self.Window,
-                                 bg="#ABB2B9",
-                                 height=80)
- 
-        self.labelBottom.place(relwidth=1,
-                               rely=0)
- 
-        self.entryMsg = Entry(self.labelBottom,
-                              bg="#2C3E50",
-                              fg="#EAECEE",
-                              font="Helvetica 13")
- 
-        # place the given widget
-        # into the gui window
-        self.entryMsg.place(relwidth=0.74,
-                            relheight=0.06,
-                            rely=0.008,
-                            relx=0.011)
- 
-        self.entryMsg.focus()
- 
-        # create a Send Button
-        self.buttonMsg = Button(self.labelBottom,
-                                text="Send",
-                                font="Helvetica 10 bold",
-                                width=20,
-                                bg="#ABB2B9",
-                                command=lambda: self.sendButton(self.entryMsg.get()))
- 
-        self.buttonMsg.place(relx=0.77,
-                             rely=0.008,
-                             relheight=0.06,
-                             relwidth=0.22)
- 
-    # function to basically start the thread for sending messages
-    def sendButton(self, msg):
-        self.msg = msg
-        self.entryMsg.delete(0, END)
-        [ip,port] = self.msg.strip().split(" ")
-        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        conn.connect((ip, int(port)))
-        conn.send(Encode.requestChat())
-        conn.recv(1024)
-        self.HandleConnection.createClientThread(conn,ip,port)
 
 
 
@@ -420,7 +259,7 @@ class Peer:
 START_CHECKING = False
 class Peer_Central():
     def __init__(self):
-        self.HOST = 'localhost'
+        self.HOST = '192.168.0.125'
         self.PORT_TCP = 3000
         self.PORT_UDP = 3004
         self.central_client_socket = None
@@ -465,11 +304,6 @@ class Peer_Central():
                     print("1 or 2 only ! \n ")
             time.sleep(0)
     
-    def runChatBox(self,otherIP, otherPort):
-        # open server
-        self.HandleConnection=PeerServer(self.ip_addr,self.port)
-        self.HandleConnection.run()
-        # 
     
     def checkConn(self):
         self.checkConn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -497,10 +331,11 @@ class Peer_Central():
         print(processStatus)
     
     def loginClient(self):
-        host_name = socket.gethostname()
-        ip_addr = socket.gethostbyname(host_name)
+        hostname = socket.getfqdn()
+        ip_addr = socket.gethostbyname_ex(hostname)[2][1]
+
         sock = socket.socket()
-        sock.bind(('', 0))
+        sock.bind((ip_addr, 0))
         free_sock = sock.getsockname()[1]
         
         # login validation stuff (client side)
@@ -508,7 +343,7 @@ class Peer_Central():
         self.userName = str(input("UserName: "))
         self.password = str(input("Password: "))
         self.ip_addr = str(ip_addr)
-        self.port = int(free_sock)
+        self.port = 80
         self.Encoder = Encode(self.ip_addr, self.port) # Initialize Encoder
         # Launch Peer Server to Handle Incomminng Connection
         self.HandleConnection =  PeerServer(self.ip_addr, self.port)
@@ -545,8 +380,7 @@ class Peer_Central():
                 self.central_client_socket.send(user.encode())
                 peer_ip,peer_port = self.central_client_socket.recv(1024).decode().split(",")
                 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                conn.connect((peer_ip, int(peer_port)))
-
+                conn.connect((peer_ip, 80))
                 # Send Request Chat
                 conn.send(self.Encoder.requestChat())
 
@@ -558,7 +392,6 @@ class Peer_Central():
                 else:
                     print("Peer Decline Chat")
                 # Open Box Chat from Peer to Peer
-                break
             break
 
 
