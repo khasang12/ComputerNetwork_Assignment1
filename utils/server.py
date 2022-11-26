@@ -8,6 +8,8 @@ import socket
 from peer import *
 import sqlite3
 
+# Your External IPv4
+HOST = "192.168.1.6" 
 
 
 # TCPServer: Must be Opened before any peer connection begins
@@ -15,7 +17,7 @@ class TCPServer(threading.Thread):
     SOCKET_LIST = []
     def __init__(self):
         threading.Thread.__init__(self)
-        self.HOST = ''
+        self.HOST = HOST
         self.PORT = 3000
         self.server_socket = None
         self.running = 1
@@ -78,14 +80,11 @@ class CentralServer(threading.Thread):
                 # Search Service - Find a person to chat with
                 elif request == "search":
                     self.searchService()
-                # Retrieve Online List Service - Get online contacts
-                elif request == "onlineList":
-                    self.getOnlineUsersService()
                 else:
                     print("Invalid Request")
             except:
                 print (f"Client {self.addr} is not online or having connection errors !!")
-                traceback.print_exc()
+                #traceback.print_exc()
                 break
     
     # IMPLEMENTATION OF SERVER'S SERVICES
@@ -135,7 +134,6 @@ class CentralServer(threading.Thread):
                 sendMsg(self.conn, "Tài khoản tìm kiếm không tồn tại")
                 break
             else:
-                # db indices: 3-ip, 4-port, 5-status
                 if (record != []):
                     data = str(record[0][0]+","+record[0][1])
                     sendMsg(self.conn,data)
@@ -146,7 +144,7 @@ class CentralServer(threading.Thread):
     
     def getOnlineUsersService(self):
         records = self.getAccountsOnline()
-        sendMsg(self.conn,str(records))
+        sendMsg(self.conn,str([record[1] for record in records]))
         
     # Database-Related Methods
     
@@ -191,7 +189,7 @@ class CentralServer(threading.Thread):
 class UDPServer(threading.Thread):
     def __init__(self) -> None: # conn and addr are client's
         threading.Thread.__init__(self)
-        self.HOST = ''
+        self.HOST = HOST
         self.PORT = 3004
         self.server_socket = None
         self.running = 1
@@ -200,7 +198,6 @@ class UDPServer(threading.Thread):
     # Define available types of request from peers
     def run(self): 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.HOST, self.PORT))
 
         print("UDP server started on port " + str(self.PORT) + "\n")
@@ -209,12 +206,16 @@ class UDPServer(threading.Thread):
 
         while self.running == 1:
             try:
-                userNameData = self.server_socket.recv(1024).decode()
+                userNameDataAndAddr = self.server_socket.recvfrom(1024)
+                userNameData = userNameDataAndAddr[0].decode()
+
                 userName, data = str(userNameData).split(",")
-                
+                #print(userNameData)
                 if data == "Hello":
                     current = time.time()
                     self.ONLINE_LIST[userName] = current
+                    # send a list of friends to the listening client
+                    self.server_socket.sendto(str([friend[0] for friend in self.ONLINE_LIST]).encode(),userNameDataAndAddr[1])
                 else:
                     print("Wrong UDP data format \n")
             except:
