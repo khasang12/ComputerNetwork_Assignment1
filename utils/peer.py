@@ -392,7 +392,21 @@ class PeerClient(threading.Thread):
                 self.displayMessage("("+message["time"]+"):"+message['msg'])
 
             elif message['type'] == 'F':
-                self.displayMessage("("+message["time"]+"):"+message['fname'])
+                print("Check")
+                with open('received_test.txt', 'wb') as f_recv:
+                    self.displayMessage("("+message["time"]+"):"+message['fname'])
+                    while True:
+                        print('Data')
+                        bytes_read = self.conn.recv(4096)
+                        if not bytes_read:
+                            print('Nothing')
+                            break
+                        print('Write')
+                        f_recv.write(bytes_read)
+                    print('Done received file')
+
+                f_recv.close()
+                print('Done received file')
             """    except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -419,9 +433,19 @@ class PeerClient(threading.Thread):
         self.textCons.config(state=DISABLED)
         while True:
             #############
-            filename = 'test.txt'
-            self.displayMessage("You have sent file", send=True)        
+            filename = 'utils/test.txt'
+            self.displayMessage("You have sent file", send=True)
+            print("You have sent file")        
             self.conn.send(self.Encoder.sendFileRequest(filename))
+            with open(filename, 'rb') as f_sent:
+                bytes_read = f_sent.read(4096)
+                print("Send data")
+                if not bytes_read:
+                    break
+                self.conn.sendall(bytes_read)
+
+            f_sent.close()
+            print('Done sending file')
             break
 
 
