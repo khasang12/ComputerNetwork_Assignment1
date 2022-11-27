@@ -11,7 +11,7 @@ from protocol import Encode
 FORMAT = "utf-8"
 
 # Your External IPv4
-EXTERNAL_IP_SERVER = '192.168.1.6'
+EXTERNAL_IP_SERVER = '192.168.1.16'
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
@@ -170,7 +170,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 80 # change this for each peer
+        self.listenPort = 81 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, self.listenPort))
@@ -316,7 +316,7 @@ class PeerClient(threading.Thread):
  
         self.buttonMsg.place(relx=0.77,
                              rely=0.008,
-                             relheight=0.06,
+                             relheight=0.03,
                              relwidth=0.22)
 
         # create a Send Button
@@ -325,11 +325,11 @@ class PeerClient(threading.Thread):
                                 font="Helvetica 10 bold",
                                 width=20,
                                 bg="#ABB2B9",
-                                command=lambda: self.sendButton(self.entryMsg.get()))
+                                command=lambda: self.sendFileButton())
  
         self.buttonSendFile.place(relx=0.77,
-                             rely=0.008,
-                             relheight=0.06,
+                             rely=0.038,
+                             relheight=0.03,
                              relwidth=0.22)
  
         self.textCons.config(cursor="arrow")
@@ -343,6 +343,11 @@ class PeerClient(threading.Thread):
         self.msg = msg
         self.entryMsg.delete(0, END)
         snd = threading.Thread(target=self.sendMessage)
+        snd.start()
+
+    def sendFileButton(self):
+        self.textCons.config(state=DISABLED)
+        snd = threading.Thread(target=self.sendFile)
         snd.start()
  
     def displayMessage(self,msg, send=False):
@@ -385,6 +390,9 @@ class PeerClient(threading.Thread):
             elif  message['type'] == 'M':
                 # insert messages to text box
                 self.displayMessage("("+message["time"]+"):"+message['msg'])
+
+            elif message['type'] == 'F':
+                self.displayMessage("("+message["time"]+"):"+message['fname'])
             """    except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -404,6 +412,16 @@ class PeerClient(threading.Thread):
             message = (f"{self.msg}")
             self.displayMessage(self.msg, send=True)        
             self.conn.send(self.Encoder.sendMessage(message))
+            break
+
+    # function to send files
+    def sendFile(self):
+        self.textCons.config(state=DISABLED)
+        while True:
+            #############
+            filename = 'test.txt'
+            self.displayMessage("You have sent file", send=True)        
+            self.conn.send(self.Encoder.sendFileRequest(filename))
             break
 
 
