@@ -171,7 +171,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 81 # change this for each peer
+        self.listenPort = 80 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, self.listenPort))
@@ -393,22 +393,20 @@ class PeerClient(threading.Thread):
                 self.displayMessage("("+message["time"]+"):"+message['msg'])
 
             elif message['type'] == 'F':
-                print("Check")
                 self.displayMessage("("+message["time"]+"):"+message['fname'])
                 filename = message['fname']
-                filesize = int(self.conn.recv(16))
+                filesize = message['fsize']
                 with open(filename, 'wb') as f:
-                    while True:
-                        print('Data')
-                        bytes_read = self.conn.recv()
+                    i = 0
+                    l = int((filesize-1) / 1024) + 1
+                    print(l)
+                    while i < l:
+                        bytes_read = self.conn.recv(1024)
                         if not bytes_read:
-                            print('Nothing')
                             break
-                        else:
-                            print("check")
-                        print("Is read")
+                        f.write(bytes_read)
+                        i += 1
 
-                print('Done received file')
             """    except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -436,19 +434,18 @@ class PeerClient(threading.Thread):
         ##while True:
             #############
         filename = "utils/test.txt"
-        filesize = os.path.getsize(filename)
+        filesize = int(os.path.getsize(filename))
         self.displayMessage("You have sent file", send=True)
         filepath = filename.split("/")[1]
-        self.conn.send(self.Encoder.sendFileRequest(filepath))
-        print("You have sent file")                    
+        self.conn.send(self.Encoder.sendFileRequest(filepath, filesize))     
         with open(filename, 'rb') as f:
-            bytes_read = f.read()
-            self.conn.sendall(len(bytes_read))
-            self.conn.sendall(bytes_read)
-            # self.conn.send(self.Encoder.sendFileRequest("end"))
-
-        print('Done sending file')
-            ##break
+            while True:
+                bytes_read = f.read(4096)
+                if not bytes_read:
+                    break
+                self.conn.sendall(bytes_read)
+        
+        
 
 
 def printOnlineUsers(data):
