@@ -4,6 +4,7 @@ from tkinter import *
 from tkinter import font
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter.filedialog import askopenfilename, askdirectory
 import sys,json
 from protocol import Encode
 import logging
@@ -12,7 +13,7 @@ import os
 FORMAT = "utf-8"
 
 # Your External IPv4
-EXTERNAL_IP_SERVER = '192.168.1.16'
+EXTERNAL_IP_SERVER = '192.168.1.6'
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
@@ -113,7 +114,7 @@ class Peer_Central():
         self.userName = str(input("UserName: "))
         self.password = str(input("Password: "))
         self.ip_addr = str(ip_addr)
-        self.port = 80
+        self.port = 81
         self.Encoder = Encode(self.ip_addr, self.port) # Initialize Encoder
         # Launch Peer Server to Handle Incomminng Connection
         self.HandleConnection =  PeerServer(self.userName,self.ip_addr, self.port)
@@ -142,7 +143,7 @@ class Peer_Central():
                 self.central_client_socket.send(user.encode())
                 peer_ip,peer_port = self.central_client_socket.recv(1024).decode().split(",")
                 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                conn.connect((peer_ip, 80))
+                conn.connect((peer_ip, 81))
                 # Send Request Chat
                 conn.send(self.Encoder.requestChat())
 
@@ -171,7 +172,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 80 # change this for each peer
+        self.listenPort = 82 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, self.listenPort))
@@ -396,7 +397,8 @@ class PeerClient(threading.Thread):
                 self.displayMessage("("+message["time"]+"):"+message['fname'])
                 filename = message['fname']
                 filesize = message['fsize']
-                with open(filename, 'wb') as f:
+                filepath = askdirectory()+ '/' + filename
+                with open(filepath, 'wb') as f:
                     i = 0
                     l = int((filesize-1) / 1024) + 1
                     print(l)
@@ -431,21 +433,17 @@ class PeerClient(threading.Thread):
     # function to send files
     def sendFile(self):
         self.textCons.config(state=DISABLED)
-        ##while True:
-            #############
-        filename = "utils/test.txt"
-        filesize = int(os.path.getsize(filename))
+        filepath = askopenfilename()
+        filesize = int(os.path.getsize(filepath))
         self.displayMessage("You have sent file", send=True)
-        filepath = filename.split("/")[1]
-        self.conn.send(self.Encoder.sendFileRequest(filepath, filesize))     
-        with open(filename, 'rb') as f:
+        filename = filepath.split("/")[-1]
+        self.conn.send(self.Encoder.sendFileRequest(filename, filesize))     
+        with open(filepath, 'rb') as f:
             while True:
                 bytes_read = f.read(4096)
                 if not bytes_read:
                     break
                 self.conn.sendall(bytes_read)
-        
-        
 
 
 def printOnlineUsers(data):
