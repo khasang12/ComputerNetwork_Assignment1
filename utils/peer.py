@@ -4,10 +4,12 @@ from tkinter import *
 from tkinter import font
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter.filedialog import askopenfilename, askdirectory
 import sys,json
 from protocol import Encode
 import logging
 from protocol import Encode
+import os
 FORMAT = "utf-8"
 
 # Your External IPv4
@@ -112,7 +114,7 @@ class Peer_Central():
         self.userName = str(input("UserName: "))
         self.password = str(input("Password: "))
         self.ip_addr = str(ip_addr)
-        self.port = 80
+        self.port = 81
         self.Encoder = Encode(self.ip_addr, self.port) # Initialize Encoder
         # Launch Peer Server to Handle Incomminng Connection
         self.HandleConnection =  PeerServer(self.userName,self.ip_addr, self.port)
@@ -141,7 +143,7 @@ class Peer_Central():
                 self.central_client_socket.send(user.encode())
                 peer_ip,peer_port = self.central_client_socket.recv(1024).decode().split(",")
                 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                conn.connect((peer_ip, 80))
+                conn.connect((peer_ip, 81))
                 # Send Request Chat
                 conn.send(self.Encoder.requestChat())
 
@@ -170,7 +172,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 80 # change this for each peer
+        self.listenPort = 82 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, self.listenPort))
@@ -316,7 +318,7 @@ class PeerClient(threading.Thread):
  
         self.buttonMsg.place(relx=0.77,
                              rely=0.008,
-                             relheight=0.06,
+                             relheight=0.03,
                              relwidth=0.22)
 
         # create a Send Button
@@ -325,11 +327,11 @@ class PeerClient(threading.Thread):
                                 font="Helvetica 10 bold",
                                 width=20,
                                 bg="#ABB2B9",
-                                command=lambda: self.sendButton(self.entryMsg.get()))
+                                command=lambda: self.sendFileButton())
  
         self.buttonSendFile.place(relx=0.77,
-                             rely=0.008,
-                             relheight=0.06,
+                             rely=0.038,
+                             relheight=0.03,
                              relwidth=0.22)
  
         self.textCons.config(cursor="arrow")
@@ -343,6 +345,11 @@ class PeerClient(threading.Thread):
         self.msg = msg
         self.entryMsg.delete(0, END)
         snd = threading.Thread(target=self.sendMessage)
+        snd.start()
+
+    def sendFileButton(self):
+        self.textCons.config(state=DISABLED)
+        snd = threading.Thread(target=self.sendFile)
         snd.start()
  
     def displayMessage(self,msg, send=False):
@@ -385,6 +392,23 @@ class PeerClient(threading.Thread):
             elif  message['type'] == 'M':
                 # insert messages to text box
                 self.displayMessage("("+message["time"]+"):"+message['msg'])
+
+            elif message['type'] == 'F':
+                self.displayMessage("("+message["time"]+"):"+message['fname'])
+                filename = message['fname']
+                filesize = message['fsize']
+                filepath = askdirectory()+ '/' + filename
+                with open(filepath, 'wb') as f:
+                    i = 0
+                    l = int((filesize-1) / 1024) + 1
+                    print(l)
+                    while i < l:
+                        bytes_read = self.conn.recv(1024)
+                        if not bytes_read:
+                            break
+                        f.write(bytes_read)
+                        i += 1
+
             """    except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -405,6 +429,21 @@ class PeerClient(threading.Thread):
             self.displayMessage(self.msg, send=True)        
             self.conn.send(self.Encoder.sendMessage(message))
             break
+
+    # function to send files
+    def sendFile(self):
+        self.textCons.config(state=DISABLED)
+        filepath = askopenfilename()
+        filesize = int(os.path.getsize(filepath))
+        self.displayMessage("You have sent file", send=True)
+        filename = filepath.split("/")[-1]
+        self.conn.send(self.Encoder.sendFileRequest(filename, filesize))     
+        with open(filepath, 'rb') as f:
+            while True:
+                bytes_read = f.read(4096)
+                if not bytes_read:
+                    break
+                self.conn.sendall(bytes_read)
 
 
 def printOnlineUsers(data):

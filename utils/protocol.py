@@ -41,12 +41,13 @@ class Encode:
             'msg':msg
         }).encode(FORMAT)
 
-    def sendFileRequest(self, filename):
+    def sendFileRequest(self, filename, filesize):
         return json.dumps({
             'type':"F",
             'flag':1,
             'time':datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-            'fname': filename
+            'fname': filename,
+            'fsize': filesize
         }).encode(FORMAT)
     
 
