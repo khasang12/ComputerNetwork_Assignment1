@@ -13,7 +13,9 @@ import os
 FORMAT = "utf-8"
 
 # Your External IPv4
-EXTERNAL_IP_SERVER = '192.168.1.6'
+EXTERNAL_IP_SERVER = '10.28.129.250'
+SEGMENT_SIZE = 8192
+HOST_PORT=80
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
@@ -102,8 +104,8 @@ class Peer_Central():
         print(processStatus)
     
     def loginClient(self):
-        hostname = socket.getfqdn()
-        ip_addr = socket.gethostbyname_ex(hostname)[2][1]
+        hostname = socket.gethostname()
+        ip_addr = socket.gethostbyname_ex(hostname)[2][0]
 
         sock = socket.socket()
         sock.bind((ip_addr, 0))
@@ -114,7 +116,7 @@ class Peer_Central():
         self.userName = str(input("UserName: "))
         self.password = str(input("Password: "))
         self.ip_addr = str(ip_addr)
-        self.port = 81
+        self.port = 80
         self.Encoder = Encode(self.ip_addr, self.port) # Initialize Encoder
         # Launch Peer Server to Handle Incomminng Connection
         self.HandleConnection =  PeerServer(self.userName,self.ip_addr, self.port)
@@ -172,7 +174,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 82 # change this for each peer
+        self.listenPort = HOST_PORT # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, self.listenPort))
@@ -370,51 +372,49 @@ class PeerClient(threading.Thread):
     # This will handle request send from user
     def receive(self):
         while True:
-            # try:
-            message = self.conn.recv(1024).decode(FORMAT)
-            message = json.loads(message)
-            # If message is request message
-            if message['type'] == 'Request':
-                # If it is Start Chat Request
-                if message['flag'] == "S":
-                    # Call UIn   
-                    diaglogResult = messagebox.askokcancel("There is Message Request","{} requested chat. Accept?".format(self.cip))
-                    if(diaglogResult):
-                        self.conn.send(self.Encoder.acceptChat())
-                    else:
-                        self.conn.send(self.Encoder.declineChat())
+            try:
+                message = self.conn.recv(1024).decode(FORMAT)
+
+                message = json.loads(message)
+                # If message is request message
+                if message['type'] == 'Request':
+                    # If it is Start Chat Request
+                    if message['flag'] == "S":
+                        # Call UIn   
+                        diaglogResult = messagebox.askokcancel("There is Message Request","{} requested chat. Accept?".format(self.cip))
+                        if(diaglogResult):
+                            self.conn.send(self.Encoder.acceptChat())
+                        else:
+                            self.conn.send(self.Encoder.declineChat())
+                            self.Window.destroy()
+                    elif message['flag'] == "E":
+                        messagebox.showwarning("Your peer ","{} has left the conversation. The chatbox will be closed after 2 seconds".format(self.cip))
+                        time.sleep(2)
                         self.Window.destroy()
-                elif message['flag'] == "E":
-                    messagebox.showwarning("Your peer ","{} has left the conversation. The chatbox will be closed after 2 seconds".format(self.cip))
-                    time.sleep(2)
-                    self.Window.destroy()
-                    
-            elif  message['type'] == 'M':
-                # insert messages to text box
-                self.displayMessage("("+message["time"]+"):"+message['msg'])
+                        
+                elif  message['type'] == 'M':
+                    # insert messages to text box
+                    self.displayMessage("("+message["time"]+"):"+message['msg'])
 
-            elif message['type'] == 'F':
-                self.displayMessage("("+message["time"]+"):"+message['fname'])
-                filename = message['fname']
-                filesize = message['fsize']
-                filepath = askdirectory()+ '/' + filename
-                with open(filepath, 'wb') as f:
-                    i = 0
-                    l = int((filesize-1) / 1024) + 1
-                    print(l)
-                    while i < l:
-                        bytes_read = self.conn.recv(1024)
-                        if not bytes_read:
-                            break
-                        f.write(bytes_read)
-                        i += 1
-
-            """    except:
+                elif message['type'] == 'F':
+                    self.displayMessage("("+message["time"]+"):"+message['fname'])
+                    filename = message['fname']
+                    filesize = message['fsize']
+                    filepath = askdirectory()+ '/' + filename
+                    with open(filepath, 'wb') as f:
+                        i = 0
+                        l = int((filesize-1) / SEGMENT_SIZE ) + 1
+                        print(l)
+                        while i < l:
+                            bytes_read = self.conn.recv(SEGMENT_SIZE)
+                            if not bytes_read:
+                                break
+                            f.write(bytes_read)
+                            i += 1
+            except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
-                self.conn.close()
                 break
-  """
     # function to send exit
     def onClose(self):
         self.Window.destroy()
@@ -440,7 +440,7 @@ class PeerClient(threading.Thread):
         self.conn.send(self.Encoder.sendFileRequest(filename, filesize))     
         with open(filepath, 'rb') as f:
             while True:
-                bytes_read = f.read(4096)
+                bytes_read = f.read(SEGMENT_SIZE)
                 if not bytes_read:
                     break
                 self.conn.sendall(bytes_read)

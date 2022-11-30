@@ -1,0 +1,38 @@
+14:38:26,107 root INFO Running Urban Planning
+14:38:36,58 root INFO Running Urban Planning
+14:38:50,166 root INFO Running Urban Planning
+14:38:53,913 urbanGUI INFO {'type': 'Request', 'flag': 'S', 'content': '10.28.129.250 81'}
+14:39:51,897 urbanGUI INFO {'type': 'F', 'flag': 1, 'time': '11/30/2022, 14:39:51', 'fname': 'package.json', 'fsize': 243}
+14:40:17,779 urbanGUI INFO {'type': 'Request', 'flag': 'E'}
+14:54:19,472 root INFO Running Urban Planning
+14:54:26,706 root INFO Running Urban Planning
+14:54:44,131 root INFO Running Urban Planning
+14:54:50,563 urbanGUI INFO {'type': 'Request', 'flag': 'S', 'content': '10.28.129.250 81'}
+14:54:58,424 urbanGUI INFO {'type': 'F', 'flag': 1, 'time': '11/30/2022, 14:54:58', 'fname': 'package.json', 'fsize': 243}
+14:55:07,673 urbanGUI INFO {'type': 'Request', 'flag': 'E'}
+14:55:38,850 root INFO Running Urban Planning
+14:55:45,171 urbanGUI INFO {'type': 'Request', 'flag': 'S', 'content': '10.28.129.250 81'}
+14:56:05,598 urbanGUI INFO {'type': 'F', 'flag': 1, 'time': '11/30/2022, 14:56:05', 'fname': 'routes.php', 'fsize': 1144}
+14:56:14,509 urbanGUI INFO {'type': 'Request', 'flag': 'E'}
+14:59:54,43 root INFO Running Urban Planning
+15:00:08,629 root INFO Running Urban Planning
+15:00:35,718 root INFO Running Urban Planning
+15:00:40,633 urbanGUI INFO {'type': 'Request', 'flag': 'S', 'content': '10.28.129.250 81'}
+15:00:49,743 urbanGUI INFO {'type': 'F', 'flag': 1, 'time': '11/30/2022, 15:00:49', 'fname': 'routes.php', 'fsize': 1144}
+15:06:50,524 urbanGUI INFO {'type': 'Request', 'flag': 'E'}
+15:07:44,533 root INFO Running Urban Planning
+15:07:50,305 root INFO Running Urban Planning
+15:08:02,3 root INFO Running Urban Planning
+15:08:08,332 urbanGUI INFO {'type': 'Request', 'flag': 'S', 'content': '10.28.129.250 81'}
+15:08:32,712 urbanGUI INFO {'type': 'F', 'flag': 1, 'time': '11/30/2022, 15:08:32', 'fname': 'routes.php', 'fsize': 1144}
+15:11:51,771 root INFO Running Urban Planning
+15:11:56,990 root INFO Running Urban Planning
+15:12:13,78 root INFO Running Urban Planning
+15:12:16,334 urbanGUI INFO {"type": "Request", "flag": "S", "content": "10.28.129.250 81"}
+15:12:16,334 urbanGUI INFO {'type': 'Request', 'flag': 'S', 'content': '10.28.129.250 81'}
+15:13:11,894 urbanGUI INFO {"type": "F", "flag": 1, "time": "11/30/2022, 15:13:11", "fname": "2022-09-12_14-01-18.mkv", "fsize": 245049981}
+15:13:11,894 urbanGUI INFO {'type': 'F', 'flag': 1, 'time': '11/30/2022, 15:13:11', 'fname': '2022-09-12_14-01-18.mkv', 'fsize': 245049981}
+15:13:30,578 urbanGUI INFO {"type": "M", "flag": 0, "time": "11/30/2022, 15:13:30", "msg": "asd"}
+15:13:30,578 urbanGUI INFO {'type': 'M', 'flag': 0, 'time': '11/30/2022, 15:13:30', 'msg': 'asd'}
+15:13:33,234 urbanGUI INFO {"type": "M", "flag": 0, "time": "11/30/2022, 15:13:33", "msg": "sdf"}
+15:13:33,234 urbanGUI INFO {'type': 'M', 'flag': 0, 'time': '11/30/2022, 15:13:33', 'msg': 'sdf'}

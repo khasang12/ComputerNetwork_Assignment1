@@ -9,7 +9,7 @@ from peer import *
 import sqlite3
 
 # Your External IPv4
-HOST = "192.168.1.6" 
+HOST = "10.28.129.250" 
 
 
 # TCPServer: Must be Opened before any peer connection begins
@@ -279,7 +279,7 @@ def sign_in(user_name, password):
                         free_sock = sock.getsockname()[1]
                         
                         print(f"Login-> IP: {ip_addr}, Port: {free_sock}")
-                        Peer(ip_addr,int(free_sock)).run()
+                        Peer_Central(ip_addr,int(free_sock)).run()
                         return
             if not check:
                 tkinter.messagebox.showerror(title="Lỗi đăng nhập",message="Tài khoản không tồn tại !!")
