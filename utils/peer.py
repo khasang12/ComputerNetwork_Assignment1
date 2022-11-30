@@ -6,12 +6,14 @@ from tkinter import ttk
 from tkinter import messagebox
 import sys,json
 from protocol import Encode
+# from utils.protocol import Encode
 import logging
-from protocol import Encode
+import LinkedUI
 FORMAT = "utf-8"
 
 # Your External IPv4
-EXTERNAL_IP_SERVER = '192.168.1.6'
+# EXTERNAL_IP_SERVER = '192.168.1.6'
+EXTERNAL_IP_SERVER = '192.168.137.1'
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
@@ -45,25 +47,6 @@ class Peer_Central():
         
         # Maintain online
         threading.Thread(target=self.checkConn).start()
-            
-        # Choose
-        while self.running == 1:
-            while self.CONDITION:
-                print ("\n---------------------------------------------------")
-                choice = str(input("\rPlease, press '1' for registration, '2' for join: "))
-                print ("---------------------------------------------------\n")
-                if choice == "1":
-                    self.registerClient()
-                    break
-                elif choice == "2":
-                    self.loginClient()
-                    self.CONDITION = False
-                    #self.kill()
-                    break
-                else:
-                    print("1 or 2 only ! \n ")
-            time.sleep(0)
-    
     
     def checkConn(self):
         self.checkConn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -87,7 +70,7 @@ class Peer_Central():
                 
             time.sleep(0.1)
     
-    def registerClient(self):
+    def registerClient(self):       # có UI rồi
         self.central_client_socket.send("register".encode())
         
         # register validation stuff (client side)
@@ -99,7 +82,7 @@ class Peer_Central():
         processStatus = self.central_client_socket.recv(1024).decode()
         print(processStatus)
     
-    def loginClient(self):
+    def loginClient(self):          # có UI rồi
         hostname = socket.getfqdn()
         ip_addr = socket.gethostbyname_ex(hostname)[2][1]
 
@@ -165,15 +148,16 @@ class PeerServer(threading.Thread):
     ClientList = [] # List Of Client Connection IP:Connection 
     peerIP = None
     peerPort = None
-    def __init__(self,peerName,peerIp,peerPort) -> None:
+    def __init__(self, peerName, peerIp, peerPort) -> None:
         threading.Thread.__init__(self)
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
+        self.peerPort = peerPort
         self.listenPort = 80 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind((peerIp, self.listenPort))
+        self.server.bind((peerIp, int(self.listenPort)))
 
 
     def run(self):
@@ -191,7 +175,7 @@ class PeerServer(threading.Thread):
                         
                             conn, addr = s.accept()
                             print(conn)
-                            """ conn.bind((self.peerIP,0))   """                     
+                            """ conn.bind((self.peerIP,0))   """
                             self.createClientThread(conn,addr[0],addr[1])
                             self.ClientList.append(conn)
                     else:
@@ -414,9 +398,9 @@ def printOnlineUsers(data):
 if __name__ == "__main__":
     # [ip,port] = input("IP Port: ").strip().split(" ")
     # Peer(ip,int(port)).run()
-    peer_central = Peer_Central()
-    peer_central.run()
-    
+    # peer_central = Peer_Central()
+    # peer_central.run()
+    pass        # có UI gọi những gì liên quan tới peer rồi nên chỗ này ko cần chạy mấy cái peer nữa
     #[ip,port] = input("IP Port: ").strip().split(" ")
     # ip = socket.gethostbyname(socket.gethostname())
     #Peer(ip,int(port)).run()

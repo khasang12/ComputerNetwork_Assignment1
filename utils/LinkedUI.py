@@ -2,9 +2,11 @@ from tkinter import *
 from tkinter import font
 import re
 import tkinter.messagebox
-from utils.server import *
-from PIL import ImageTk, Image
+import server
+# from tkinter import Image, ImageTk    # lỗi import ImageTk
+from tkinter import Image
 
+# dummy data
 data = [
     {
         "username": "abcd",
@@ -33,6 +35,7 @@ data = [
     }
 ]
 
+# t định cho cái này lấy cái list online user xong r sort online xếp trước offline (nhưng ko biết gọi method của server bên UI :<)
 def getSortedOnlineUsers():
     sortedData = sorted(data, key=lambda x: (not x["status"], x["full_name"]))
     return sortedData
@@ -45,8 +48,9 @@ class FirstPage(Tk):
         self.title('P2P ChatApp')
         
         # Homepage - logo
-        img = ImageTk.PhotoImage(Image.open("logo.png").resize((560,420)))
-        self.background = Label(self, image = img)
+        # img = ImageTk.PhotoImage(Image.open("logo.png").resize((560,420)))        # chỗ này t bị lỗi import ko được ImageTk
+        # self.background = Label(self, image=img)                                  # có thể do t đem LinkedUI vào bên trong utils
+        self.background = Label(self, text="Logo here")                             # thay thế cho có
         self.background.pack()
         
         self.login = RegistryFrame(self, bground="white",fname="login")
@@ -62,10 +66,6 @@ class FirstPage(Tk):
         button2=Button(buttonframe,border=0, width=20, pady=5, bg='#57a1f8', fg='white', text="Register", command=lambda: self.change_frame("register"))
         button2.grid(row=0, column=1, padx=5, pady=5)
 
-        # button for testing
-        # dummyButton = Button(buttonframe,border=0, width=20, pady=5, bg='#57a1f8', fg='white', text="List", command=lambda: self.change_frame("list"))
-        # dummyButton.grid(row=0, column=2, padx=5, pady=5)
-
         self.mainloop()
         
     def change_frame(self,frame_name):
@@ -78,9 +78,6 @@ class FirstPage(Tk):
         elif frame_name == "register":
             self.register.pack(fill='both', expand=1)
             self.login.pack_forget()
-        elif frame_name == "list":
-            self.destroy()
-            ListPage()
         else:
             print("Ahuhu :((")
 
@@ -89,11 +86,10 @@ class ListFrame(Frame):
         super().__init__(bg=kwargs["bground"])
         self.fname = kwargs["fname"]
         self.data = kwargs["data"]
-        self.peerCount = kwargs["peerCount"]
         self.render()
 
     def render(self):
-        for i in range(self.peerCount):
+        for i in range(len(data)):          # render từng user lên cái window mới
             person = self.data[i]
             full_name = person["full_name"]
             username = person["username"]
@@ -102,22 +98,19 @@ class ListFrame(Frame):
             userLabel.grid(row=i, column=0, padx=5, pady=5)
             userButton = Button(self, text="Message", bg='white', fg='black', font=("Segoe UI",12,"bold"))
             userButton.grid(row=i, column=1, padx=0, pady=2)
-            if not person["status"]:
+            if not person["status"]:        # ko online thì ko chat đc
                 userButton["state"] = "disabled"
 
-class ListPage(Tk):
+class ListPage(Tk):         # window mới để hiển thị cái list user online
     def __init__(self):
         super().__init__()
-        # self.canvas = Canvas(self, borderwidth=0, background="yellow")
         self.configure(bg="#fff")
         self.title('Choose to chat')
-        print("Here!!!")
         self.data = getSortedOnlineUsers()
-        self.peerCount = self.data.__len__()
-        self.geometry("260x" + str(80 * data.__len__()))
-        self.listFrame = ListFrame(self, bground="white", fname="list", data=self.data, peerCount=self.peerCount)
+        self.geometry("260x" + str(80 * len(self.data)))        # càng nhiều user trong list thì cái window càng dài, t còn tính làm scrollbar nữa mà ko ra dc
+        self.listFrame = ListFrame(self, bground="white", fname="list", data=self.data)
         self.listFrame.pack(fill="both", expand=1)
-        # self.mainloop()
+        self.mainloop()
             
 class RegistryFrame(Frame):
     def __init__(self,*args,**kwargs):
@@ -170,7 +163,7 @@ class RegistryFrame(Frame):
                 elif passwd.get() == "" or passwd.get() == "Password":
                     tkinter.messagebox.showerror(title="Lỗi đăng nhập",message="Nhập mật khẩu giúp em ạ :((")
                 else:
-                    sign_in(user.get(),passwd.get()) 
+                    server.sign_in(user.get(),passwd.get()) 
                 
         elif self.fname == "register":    
             label_0 = Label(self, fg="#57a1f8", bg="#fff", text="Registration form", font=("Microsoft YaHei UI Light",25,"bold"))
@@ -242,7 +235,9 @@ class RegistryFrame(Frame):
                 elif re_password.get() != password.get():
                     tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Mật khẩu nhập lại không trùng khớp !!")
                 else: 
-                    sign_up(user_name.get(),full_name.get(),password.get())
+                    # server.sign_up(user_name.get(),full_name.get(),password.get())
+                    server.sign_up(user_name.get(),password.get())
+
 
 if __name__ == "__main__":
     FirstPage()
