@@ -1,53 +1,64 @@
+import time
 from tkinter import *
 from tkinter import font
 import re
 import tkinter.messagebox
-from utils.server import *
-from PIL import ImageTk, Image
+import server
+from peer import Peer_Central
+import PIL.Image, PIL.ImageTk
+from tkinter import Image
+import threading
+import sys,os
+import collections
 
-data = [
-    {
-        "username": "abcd",
-        "full_name": "Person1",
-        "status": 1
-    },
-    {
-        "username": "abcde",
-        "full_name": "Person2",
-        "status": 0
-    },
-    {
-        "username": "abcdef",
-        "full_name": "Person3",
-        "status": 1
-    },
-    {
-        "username": "abcdefg",
-        "full_name": "Person4",
-        "status": 0
-    },
-    {
-        "username": "abcdefgh",
-        "full_name": "Person5",
-        "status": 1
-    }
-]
+# dummy status_list
+# data = [
+#     {
+#         "username": "abcd",
+#         "full_name": "Person1",
+#         "status": 1
+#     },
+#     {
+#         "username": "abcde",
+#         "full_name": "Person2",
+#         "status": 0
+#     },
+#     {
+#         "username": "abcdef",
+#         "full_name": "Person3",
+#         "status": 1
+#     },
+#     {
+#         "username": "abcdefg",
+#         "full_name": "Person4",
+#         "status": 0
+#     },
+#     {
+#         "username": "abcdefgh",
+#         "full_name": "Person5",
+#         "status": 1
+#     }
+# ]
 
-def getSortedOnlineUsers():
-    sortedData = sorted(data, key=lambda x: (not x["status"], x["full_name"]))
-    return sortedData
-
+# # t định cho cái này lấy cái list online user xong r sort online xếp trước offline (nhưng ko biết gọi method của server bên UI :<)
+# def getSortedOnlineUsers():
+#     sortedData = sorted(data, key=lambda x: (not x["status"], x["full_name"]))
+#     return sortedData
+# First Page: Coverage
 class FirstPage(Tk):
     def __init__(self):
         super().__init__()
         self.configure(bg="#fff")
         self.geometry("480x480")
         self.title('P2P ChatApp')
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Homepage - logo
-        img = ImageTk.PhotoImage(Image.open("logo.png").resize((560,420)))
-        self.background = Label(self, image = img)
+        img = PIL.ImageTk.PhotoImage(PIL.Image.open(os.path.join(os.getcwd(),'logo.png')).resize((560,420)))        # chỗ này t bị lỗi import ko được ImageTk
+        self.background = Label(self, image=img)                                  # có thể do t đem LinkedUI vào bên trong utils
+        #self.background = Label(self, text="Logo here")                             # thay thế cho có
         self.background.pack()
+        self.after(1000,lambda: self.auto_close())
         
         self.login = RegistryFrame(self, bground="white",fname="login")
         self.register = RegistryFrame(self, bground="white",fname="register")
@@ -62,12 +73,14 @@ class FirstPage(Tk):
         button2=Button(buttonframe,border=0, width=20, pady=5, bg='#57a1f8', fg='white', text="Register", command=lambda: self.change_frame("register"))
         button2.grid(row=0, column=1, padx=5, pady=5)
 
-        # button for testing
-        # dummyButton = Button(buttonframe,border=0, width=20, pady=5, bg='#57a1f8', fg='white', text="List", command=lambda: self.change_frame("list"))
-        # dummyButton.grid(row=0, column=2, padx=5, pady=5)
-
         self.mainloop()
-        
+    def auto_close(self):
+        if self.login.close:
+            self.login.close = -1 #stop sign
+            self.destroy()
+
+        elif self.login.close != -1: 
+            self.after(1000, self.auto_close)
     def change_frame(self,frame_name):
         # delete background
         self.background.pack_forget()
@@ -78,52 +91,25 @@ class FirstPage(Tk):
         elif frame_name == "register":
             self.register.pack(fill='both', expand=1)
             self.login.pack_forget()
-        elif frame_name == "list":
-            self.destroy()
-            ListPage()
         else:
             print("Ahuhu :((")
-
-class ListFrame(Frame):
-    def __init__(self,*args,**kwargs):
-        super().__init__(bg=kwargs["bground"])
-        self.fname = kwargs["fname"]
-        self.data = kwargs["data"]
-        self.peerCount = kwargs["peerCount"]
-        self.render()
-
-    def render(self):
-        for i in range(self.peerCount):
-            person = self.data[i]
-            full_name = person["full_name"]
-            username = person["username"]
-            status = "Online" if person["status"] else "Offline"
-            userLabel = Label(self, fg="#000", bg="#fff", text=full_name + "\n@" + username + "\n" + status,borderwidth=5, width=15, height=3, relief="ridge", font=("Microsoft YaHei UI Light",10,"bold"))
-            userLabel.grid(row=i, column=0, padx=5, pady=5)
-            userButton = Button(self, text="Message", bg='white', fg='black', font=("Segoe UI",12,"bold"))
-            userButton.grid(row=i, column=1, padx=0, pady=2)
-            if not person["status"]:
-                userButton["state"] = "disabled"
-
-class ListPage(Tk):
-    def __init__(self):
-        super().__init__()
-        # self.canvas = Canvas(self, borderwidth=0, background="yellow")
-        self.configure(bg="#fff")
-        self.title('Choose to chat')
-        print("Here!!!")
-        self.data = getSortedOnlineUsers()
-        self.peerCount = self.data.__len__()
-        self.geometry("260x" + str(80 * data.__len__()))
-        self.listFrame = ListFrame(self, bground="white", fname="list", data=self.data, peerCount=self.peerCount)
-        self.listFrame.pack(fill="both", expand=1)
-        # self.mainloop()
+    
+    def on_closing(self):
+        if tkinter.messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.register.delete()
+            self.login.delete()
+            self.destroy()
             
+# Subframe for First Page - Toggle between Login and Register Service
 class RegistryFrame(Frame):
     def __init__(self,*args,**kwargs):
         super().__init__(bg=kwargs["bground"])
         self.fname = kwargs["fname"]
+        self.close = False 
         self.render()
+    def delete(self):
+        for widget in self.winfo_children():
+            widget.destroy()
     def render(self):
         if self.fname == "login":
             label_0 = Label(self, fg="#57a1f8", bg="#fff", text="Login form", font=("Microsoft YaHei UI Light",25,"bold"))
@@ -170,7 +156,11 @@ class RegistryFrame(Frame):
                 elif passwd.get() == "" or passwd.get() == "Password":
                     tkinter.messagebox.showerror(title="Lỗi đăng nhập",message="Nhập mật khẩu giúp em ạ :((")
                 else:
-                    sign_in(user.get(),passwd.get()) 
+                    threading.Thread(target=peer.loginClient,args=(user.get(),passwd.get()),daemon=True).start()
+                    ## move to OnlineUserPage
+                    self.close = True
+                    usern = user.get()
+                    ListPage(usern)
                 
         elif self.fname == "register":    
             label_0 = Label(self, fg="#57a1f8", bg="#fff", text="Registration form", font=("Microsoft YaHei UI Light",25,"bold"))
@@ -237,12 +227,67 @@ class RegistryFrame(Frame):
                     tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Vui lòng nhập tên tài khoản !!")
                 elif password.get() == "" or password.get() == "Password":
                     tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Vui lòng nhập mật khẩu !!")
-                elif not re.search("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$", password.get()):
-                    tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Mật khẩu có độ dài tối thiểu là 6, bao gồm ít nhất 1 kí tự hoa, 1 kí tự thường, 1 chữ số và 1 kí tự đặc biệt (trừ khoảng trắng)")
-                elif re_password.get() != password.get():
-                    tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Mật khẩu nhập lại không trùng khớp !!")
+                # elif not re.search("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$", password.get()):
+                #     tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Mật khẩu có độ dài tối thiểu là 6, bao gồm ít nhất 1 kí tự hoa, 1 kí tự thường, 1 chữ số và 1 kí tự đặc biệt (trừ khoảng trắng)")
+                # elif re_password.get() != password.get():
+                #     tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Mật khẩu nhập lại không trùng khớp !!")
                 else: 
-                    sign_up(user_name.get(),full_name.get(),password.get())
+                    # server.sign_up(user_name.get(),full_name.get(),password.get())
+                    threading.Thread(target=peer.registerClient,args=(user_name.get(),password.get())).start()
+                    # ask user to move to login page
+                    tkinter.messagebox.showinfo(title="Đăng kí thành công",message="Vui lòng tiếp tục đăng nhập để được vào dịch vụ !!")
+
+# Assume that we have a network like this                 
+NETWORK_LIST = {'a':False,'b':False,'c':False,'d':False,'e':False}
+class ListPage(Tk):         # window mới để hiển thị cái list user online
+    def __init__(self, user):
+        super().__init__()
+        
+        NETWORK_LIST_CLONE = dict(NETWORK_LIST)
+        del NETWORK_LIST_CLONE[user]
+        self.FRIEND_LIST = NETWORK_LIST_CLONE
+        self.status_list = self.FRIEND_LIST
+        
+        self.configure(bg="#fff")
+        self.title(user)
+        self.geometry("480x480")
+        self.listFrame = Frame(self, bg="white")
+        self.listScroll = Scrollbar(self.listFrame)
+        self.listScroll.pack(side=RIGHT, fill=Y)
+        self.listScroll.config(command=self.listFrame.winfo_y)
+        self.render()
+        self.after(2000,lambda:self.render())
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.mainloop()
+        
+    def render(self):
+        self.status_list = self.updateFriendStatus()
+        for i, (key, value) in enumerate(self.status_list.items()):
+            status = "--Online--" if value > 0 else "--Offline--"# render từng user lên cái window mới
+            userLabel = Label(self, fg="#000", bg="#fff", text=key+"\n"+status,borderwidth=5, width=15, height=3, relief="ridge", font=("Microsoft YaHei UI Light",10,"bold"))
+            userLabel.grid(row=i, column=0, padx=5, pady=5)
+            userButton = Button(self, text="Message", bg='white', fg='black', font=("Segoe UI",12,"bold"), command=lambda key=key: self.createChatBox(key))
+            userButton.grid(row=i, column=1, padx=0, pady=2)
+            if value == 0:        # ko online thì ko chat đc
+                userButton["state"] = "disabled"
+        self.listScroll.pack(side=RIGHT, fill=Y)
+        self.listScroll.config(command=self.winfo_y)
+        self.after(1000,lambda:self.render())
+            
+    def updateFriendStatus(self):
+        return { k:(True if k in peer.friendStatus else False) for (k,v) in self.FRIEND_LIST.items()}
+    
+    def createChatBox(self, name):
+        threading.Thread(target=peer.searchClient,args=(name)).start()
+    
+    def on_closing(self):
+        Tk().withdraw()
+        # Logout
+        if tkinter.messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.destroy()
+            os._exit(0)
 
 if __name__ == "__main__":
-    FirstPage()
+    peer = Peer_Central()
+    peer.run()
+    root = FirstPage()

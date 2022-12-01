@@ -1,5 +1,6 @@
 import threading, time
 import socket, select
+import json
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
@@ -7,19 +8,67 @@ from tkinter import messagebox
 from tkinter.filedialog import askopenfilename, askdirectory
 import sys,json
 from protocol import Encode
+# from utils.protocol import Encode
 import logging
 from protocol import Encode
 import os
 FORMAT = "utf-8"
 
 # Your External IPv4
-EXTERNAL_IP_SERVER = '192.168.1.6'
+# EXTERNAL_IP_SERVER = '192.168.1.6'
+EXTERNAL_IP_SERVER = '192.168.1.3'
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
 # This peer will listen request sent from other Peer
 START_CHECKING = False
+
+#### Client side: SIGNIN - SIGNUP
+def sign_in(user_name, password):
+    hostname = socket.getfqdn()                                         # lấy host & ip
+    ip_addr = socket.gethostbyname_ex(hostname)[2][1]
+    sign_in_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # tạo socket dành riêng cho login
+    sign_in_socket.connect((HOST, 3000))
+    sign_in_socket.send("login".encode())                               # gửi login cho server
+    time.sleep(1)                                                       # nếu ko sleep thì nó gửi cho server dính 2 cái message ở dòng 270 & 273 -> invalid
+    data = str(user_name + "," + password+","+ip_addr+","+"80")         # port cho hard code là 80
+    sign_in_socket.send(data.encode())                                  # gửi data login cho server
+    signinStatus = sign_in_socket.recv(1024).decode()
+    print(signinStatus)
+
+    if (signinStatus[-1] == '1'):
+        sign_in_socket.close()                                          # nếu thành công thì close socket này, vì nó chỉ để dành riêng cho login (đúng ko?)
+        print("closed socket")                                          # để debug
+        Peer(hostname, ip_addr, 80).run()                               # chạy cái peer với thông tin vừa login, cái này chuyển qua bước sau (cái danh sách người online)
+    else:
+        tkinter.messagebox.showerror(title="Lỗi đăng nhập",message="Thông tin đăng nhập sai, vui lòng thử lại!")
+        sign_in_socket.close()                                          # fail thì cũng close nốt
+        return
+
+def sign_up(user_name, password):
+    sign_up_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # ko cần lấy hostname với ip như login vì ko dùng tới
+    sign_up_socket.connect((HOST, 3000))
+    sign_up_socket.send("register".encode())
+    time.sleep(1)
+    data = str(user_name + "," + password)
+    sign_up_socket.send(data.encode())
+    signupStatus = sign_up_socket.recv(1024).decode()
+    print(signupStatus)
+
+    if (signupStatus[-1] == '1'):
+        sign_up_socket.close()
+        print("closed socket")
+        tkinter.messagebox.showinfo(title="Chuyển hướng",message="Đăng kí tài khoản thành công !!")
+    elif (signupStatus[-1] == '0'):
+        tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Username đã được sử dụng. Hãy thử lại.")
+        sign_up_socket.close()
+        return
+    else:
+        tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Đã có lỗi xảy ra. Hãy thử lại.")
+        sign_up_socket.close()
+        return
 class Peer_Central():
+    
     def __init__(self):
         self.HOST = EXTERNAL_IP_SERVER
         self.PORT_TCP = 3000
@@ -47,25 +96,6 @@ class Peer_Central():
         
         # Maintain online
         threading.Thread(target=self.checkConn).start()
-            
-        # Choose
-        while self.running == 1:
-            while self.CONDITION:
-                print ("\n---------------------------------------------------")
-                choice = str(input("\rPlease, press '1' for registration, '2' for join: "))
-                print ("---------------------------------------------------\n")
-                if choice == "1":
-                    self.registerClient()
-                    break
-                elif choice == "2":
-                    self.loginClient()
-                    self.CONDITION = False
-                    #self.kill()
-                    break
-                else:
-                    print("1 or 2 only ! \n ")
-            time.sleep(0)
-    
     
     def checkConn(self):
         self.checkConn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -81,27 +111,56 @@ class Peer_Central():
                     self.checkConn.sendto(data.encode(), (self.HOST, int(self.PORT_UDP)))
                     # recv online users
                     
-                    newList = self.checkConn.recv(4096).decode()
+                    result = self.checkConn.recv(4096).decode()
+                    newList = eval(result)
                     # print if updated
-                    if self.friendStatus != newList:
-                        self.friendStatus = newList
-                        printOnlineUsers(newList)
+                    newFriendList = [x for x in newList if x!=self.userName]
+                    if self.friendStatus != newFriendList:
+                        self.friendStatus = newFriendList
+                        printOnlineUsers(newFriendList)
                 
             time.sleep(0.1)
     
-    def registerClient(self):
+    def registerClient(self, userName, password):       # có UI rồi
         self.central_client_socket.send("register".encode())
         
-        # register validation stuff (client side)
-        self.userName = str(input("UserName: "))
-        self.password = str(input("Password: "))
-        data = str(self.userName + "," + self.password)
+        self.userName = userName
+        self.password = password
         
+        data = str(self.userName + "," + self.password)
         self.central_client_socket.send(data.encode())
+        print(data)
         processStatus = self.central_client_socket.recv(1024).decode()
         print(processStatus)
-    
-    def loginClient(self):
+        
+    def searchClient(self, userName):
+        self.central_client_socket.send("search".encode())
+        self.central_client_socket.send(userName.encode())
+        
+        # search trap - catch only valid data
+        data = ""
+        while True:
+            res = self.central_client_socket.recv(1024).decode()
+            if res.count(",") != 0:
+                data = res.split(",")
+                break
+        peer_ip,peer_port = data
+        
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.connect((peer_ip, 81))
+        # Send Request Chat
+        conn.send(self.Encoder.requestChat())
+
+        # Wait Until Receive
+        msg = conn.recv(1024).decode(FORMAT)
+        msg = json.loads(msg)
+        if(msg['code']==1):
+            self.HandleConnection.createClientThread(conn,self.ip_addr,self.port)
+        else:
+            print("Peer Decline Chat")
+        self.HandleConnection.join()
+                    
+    def loginClient(self, userName, password):          # có UI rồi
         hostname = socket.getfqdn()
         ip_addr = socket.gethostbyname_ex(hostname)[2][1]
 
@@ -111,10 +170,10 @@ class Peer_Central():
         
         # login validation stuff (client side)
         self.central_client_socket.send("login".encode())
-        self.userName = str(input("UserName: "))
-        self.password = str(input("Password: "))
+        self.userName = userName
+        self.password = password
         self.ip_addr = str(ip_addr)
-        self.port = 81
+        self.port = 80
         self.Encoder = Encode(self.ip_addr, self.port) # Initialize Encoder
         # Launch Peer Server to Handle Incomminng Connection
         self.HandleConnection =  PeerServer(self.userName,self.ip_addr, self.port)
@@ -129,36 +188,30 @@ class Peer_Central():
         processStatus = self.central_client_socket.recv(1024).decode()
         print(processStatus)
     
-        # Assume that login is complete
+        # Start Checking Attendance
         global START_CHECKING 
         START_CHECKING = True
         self.startTime = time.time()
+            # while 1:
+            #     user = input("\rType Username you want to chat with: ")
+            #     self.central_client_socket.send("search".encode())
+            #     self.central_client_socket.send(user.encode())
+            #     peer_ip,peer_port = self.central_client_socket.recv(1024).decode().split(",")
+            #     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            #     conn.connect((peer_ip, 81))
+            #     # Send Request Chat
+            #     conn.send(self.Encoder.requestChat())
+
+            #     # Wait Until Receive
+            #     msg = conn.recv(1024).decode(FORMAT)
+            #     msg = json.loads(msg)
+            #     if(msg['code']==1):
+            #         self.HandleConnection.createClientThread(conn,self.ip_addr,self.port)
+            #     else:
+            #         print("Peer Decline Chat")
+            #     # Open Box Chat from Peer to Peer
+            # break
         
-        while True:
-            # Greeting...
-            print(f"\n Welcome {self.central_client_socket.recv(1024).decode()}")
-            while 1:
-                user = input("\rType Username you want to chat with: ")
-                self.central_client_socket.send("search".encode())
-                self.central_client_socket.send(user.encode())
-                peer_ip,peer_port = self.central_client_socket.recv(1024).decode().split(",")
-                conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                conn.connect((peer_ip, 81))
-                # Send Request Chat
-                conn.send(self.Encoder.requestChat())
-
-                # Wait Until Receive
-                msg = conn.recv(1024).decode(FORMAT)
-                msg = json.loads(msg)
-                if(msg['code']==1):
-                    self.HandleConnection.createClientThread(conn,self.ip_addr,self.port)
-                else:
-                    print("Peer Decline Chat")
-                # Open Box Chat from Peer to Peer
-            break
-
-
-        self.HandleConnection.join()
         
 # This is Server Side of The Peer
 # This will contain an Array of All Client Connection
@@ -167,7 +220,7 @@ class PeerServer(threading.Thread):
     ClientList = [] # List Of Client Connection IP:Connection 
     peerIP = None
     peerPort = None
-    def __init__(self,peerName,peerIp,peerPort) -> None:
+    def __init__(self, peerName, peerIp, peerPort) -> None:
         threading.Thread.__init__(self)
         self.CliendList = []
         self.peerName = peerName
@@ -175,7 +228,7 @@ class PeerServer(threading.Thread):
         self.listenPort = 82 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind((peerIp, self.listenPort))
+        self.server.bind((peerIp, int(self.listenPort)))
 
 
     def run(self):
@@ -183,8 +236,6 @@ class PeerServer(threading.Thread):
         print("Start Listening on Port: {}".format(self.listenPort))
         inputs = [self.server]
 
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # Comment This one To act as Client because Server Thread will Take place std in
         while(inputs):
             try:
                 readable, writable, exceptional = select.select(inputs, [], [])
@@ -193,7 +244,7 @@ class PeerServer(threading.Thread):
                         
                             conn, addr = s.accept()
                             print(conn)
-                            """ conn.bind((self.peerIP,0))   """                     
+                            """ conn.bind((self.peerIP,0))   """
                             self.createClientThread(conn,addr[0],addr[1])
                             self.ClientList.append(conn)
                     else:
@@ -204,7 +255,7 @@ class PeerServer(threading.Thread):
     def createClientThread(self,conn,cliIP, cliPort) :
         # Create A Thread For Handle That Connection
         # May be a new window
-        PeerClient(str(self.peerIP),conn,cliIP,cliPort).start()
+        PeerClient(str(self.peerName),conn,cliIP,cliPort).start()
         self.CliendList.append(conn)
     def sendToAll(self,conn):
         pass
@@ -453,9 +504,9 @@ def printOnlineUsers(data):
 if __name__ == "__main__":
     # [ip,port] = input("IP Port: ").strip().split(" ")
     # Peer(ip,int(port)).run()
-    peer_central = Peer_Central()
-    peer_central.run()
-    
+    # peer_central = Peer_Central()
+    # peer_central.run()
+    pass        # có UI gọi những gì liên quan tới peer rồi nên chỗ này ko cần chạy mấy cái peer nữa
     #[ip,port] = input("IP Port: ").strip().split(" ")
     # ip = socket.gethostbyname(socket.gethostname())
     #Peer(ip,int(port)).run()
