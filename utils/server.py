@@ -1,15 +1,19 @@
 import sys
 from threading import Thread
 import traceback
-
+import socket
 import csv
 import tkinter.messagebox
-import socket
-from peer import *
 import sqlite3
+from peer import *
+# from scatch import Peer
+# from utils.peer import *
+# from utils.scatch import Peer
+# import LinkedUI
 
 # Your External IPv4
-HOST = "192.168.1.6" 
+# HOST = "192.168.1.6"
+HOST = "192.168.1.3" 
 
 
 # TCPServer: Must be Opened before any peer connection begins
@@ -73,9 +77,11 @@ class CentralServer(threading.Thread):
                 print(f"Client request to Server: {request}")
                 # Registration Service
                 if request == "register":
+                    print("register service")
                     self.registerService()
                 # Join Service - Update user status and provide new IP-Port
                 elif request == "login":
+                    print("login service")
                     self.loginService()
                 # Search Service - Find a person to chat with
                 elif request == "search":
@@ -91,44 +97,43 @@ class CentralServer(threading.Thread):
     
     def registerService(self):
         # we used forloop to ensure registration will always be fulfilled
-        while 1:
-            user,passwd = self.conn.recv(1024).decode().split(',')
-            record = self.getAccountByUsername(user)
-            if record != []:
-                sendMsg(self.conn, "Account has been used")
-                break
-            else:
-                try:
-                    self.insertUser(user,passwd)
-                    sendMsg(self.conn, "Account created successfully")
-                    break
-                except:
-                    sendMsg(self.conn, "Error. Try again...")
-                    traceback.print_exc()
-                    break
+        user,passwd = self.conn.recv(1024).decode().split(',')
+        record = self.getAccountByUsername(user)
+        if record != []:
+            sendMsg(self.conn, "Account has been used - 0")     # file word có giải thích
+        else:
+            try:
+                self.insertUser(user,passwd)
+                sendMsg(self.conn, "Account created successfully - 1")
+            except:
+                sendMsg(self.conn, "Error. Try again...")
+                #traceback.print_exc()
 
     def loginService(self):
         while 1:
             user,passwd,ip,port = self.conn.recv(1024).decode().split(',')
             print(user)
             record = self.getAccountByUsernameAndPassword(user,passwd)
+            print(f"Record: {record}")
             if record == None:
-                sendMsg(self.conn, "Tài khoản hoặc mật khẩu không tồn tại")
+                sendMsg(self.conn, "Tài khoản hoặc mật khẩu không tồn tại - 0")
                 break
             else:
                 try:
                     self.updateUser(user,passwd,ip,port)
-                    sendMsg(self.conn, "Kết nối thành công")
+                    sendMsg(self.conn, "Kết nối thành công - 1")
                     sendMsg(self.conn,user)
                     break
-                except:
-                    sendMsg(self.conn, "Lỗi truy vấn. Đang thử lại...")
-                    traceback.print_exc()
+                except Exception as e:
+                    print(e)
+                    sendMsg(self.conn, "Lỗi truy vấn. Đang thử lại... - 0")
+                    #traceback.print_exc()
                     break
     
     def searchService(self):
         while 1:
             user = self.conn.recv(1024).decode()
+            print("search:",user)
             record = self.getAddressByUsername(user)
             if record == None:
                 sendMsg(self.conn, "Tài khoản tìm kiếm không tồn tại")
@@ -156,7 +161,7 @@ class CentralServer(threading.Thread):
         self.cursor.close()
         
     def getAccountByUsername(self,user):
-        self.cursor.execute(f"""SELECT * FROM users WHERE username='{user}'""")
+        self.cursor.execute(f"""SELECT * FROM 'users' WHERE username='{user}'""")
         records = self.cursor.fetchall()
         return records
     
@@ -185,7 +190,7 @@ class CentralServer(threading.Thread):
         self.connector.commit()
 
 # UDPServer: One Server Thread to handle ALl Client Check-ins.
-# Port: 4008
+# Port: 3004
 class UDPServer(threading.Thread):
     def __init__(self) -> None: # conn and addr are client's
         threading.Thread.__init__(self)
@@ -220,7 +225,7 @@ class UDPServer(threading.Thread):
                     print("Wrong UDP data format \n")
             except:
                 print("UDP port error \n")
-                traceback.print_stack()
+                #traceback.print_stack()
 
     def peerStatusCheck(self):
         while udpThread.running == 1:
@@ -249,61 +254,7 @@ def sendMsg(conn, msg):
     except:
         conn.close()
         
-#### Client side: SIGNIN - SIGNUP
-user_data_csv = "accounts.csv"
-def sign_in(user_name, password):
-    try:
-        # check if appears
-        print(user_name,password)
-        check = False
-        with open(user_data_csv, "rt") as f:
-            csvreader = csv.reader(f, delimiter=",")
-            for row in csvreader:
-                print(row)
-                if row == []:
-                    break
-                elif user_name == row[0]:
-                    check = True
-                    if password != row[2]:
-                        tkinter.messagebox.showerror(title="Lỗi đăng nhập",message="Nhập sai mật khẩu !!")
-                        return
-                    else:
-                        tkinter.messagebox.showinfo(title="Chuyển hướng",message="Đăng nhập thành công !!")
-                        
-                        # Get your IP Address and Find available socket - picked by OS
-                        host_name = socket.gethostname()
-                        ip_addr = socket.gethostbyname(host_name)
-                        
-                        sock = socket.socket()
-                        sock.bind(('', 0))
-                        free_sock = sock.getsockname()[1]
-                        
-                        print(f"Login-> IP: {ip_addr}, Port: {free_sock}")
-                        Peer(ip_addr,int(free_sock)).run()
-                        return
-            if not check:
-                tkinter.messagebox.showerror(title="Lỗi đăng nhập",message="Tài khoản không tồn tại !!")
-    except IOError:
-        print("I/O error")
 
-def sign_up(user_name, full_name, password):
-    try:
-        # check if appears
-        with open(user_data_csv, "rt") as f:
-            csvreader = csv.reader(f, delimiter=",")
-            for row in csvreader:
-                if row == []:
-                    break
-                elif user_name in row[0]:
-                    tkinter.messagebox.showerror(title="Lỗi đăng kí",message="Tài khoản đã được đăng kí")
-                    return
-        # append
-        with open(user_data_csv, 'a') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow((user_name, full_name, password))
-        tkinter.messagebox.showinfo(title="Chuyển hướng",message="Đăng kí tài khoản thành công !!")
-    except IOError:
-        print("I/O error")
 
 if __name__ == "__main__":
     tcpThread = TCPServer()
