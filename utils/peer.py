@@ -16,7 +16,7 @@ FORMAT = "utf-8"
 
 # Your External IPv4
 # EXTERNAL_IP_SERVER = '192.168.1.6'
-EXTERNAL_IP_SERVER = '192.168.1.3'
+EXTERNAL_IP_SERVER = '192.168.1.16'
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
@@ -225,7 +225,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 82 # change this for each peer
+        self.listenPort = 81 # change this for each peer
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, int(self.listenPort)))
