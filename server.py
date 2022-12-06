@@ -5,7 +5,7 @@ import socket
 import csv
 import tkinter.messagebox
 import sqlite3
-from peer import *
+from utils.peer import *
 # from scatch import Peer
 # from utils.peer import *
 # from utils.scatch import Peer
@@ -13,7 +13,7 @@ from peer import *
 
 # Your External IPv4
 # HOST = "192.168.1.6"
-HOST = "192.168.1.3" 
+HOST = "192.168.1.6" 
 
 
 # TCPServer: Must be Opened before any peer connection begins
@@ -110,25 +110,20 @@ class CentralServer(threading.Thread):
                 #traceback.print_exc()
 
     def loginService(self):
-        while 1:
-            user,passwd,ip,port = self.conn.recv(1024).decode().split(',')
-            print(user)
-            record = self.getAccountByUsernameAndPassword(user,passwd)
-            print(f"Record: {record}")
-            if record == None:
-                sendMsg(self.conn, "Tài khoản hoặc mật khẩu không tồn tại - 0")
-                break
-            else:
-                try:
-                    self.updateUser(user,passwd,ip,port)
-                    sendMsg(self.conn, "Kết nối thành công - 1")
-                    sendMsg(self.conn,user)
-                    break
-                except Exception as e:
-                    print(e)
-                    sendMsg(self.conn, "Lỗi truy vấn. Đang thử lại... - 0")
-                    #traceback.print_exc()
-                    break
+        user,passwd,ip,port = self.conn.recv(1024).decode().split(',')
+        print(user)
+        record = self.getAccountByUsernameAndPassword(user,passwd)
+        print(f"Record: {record}")
+        if record == []:
+            sendMsg(self.conn, "Tài khoản hoặc mật khẩu không tồn tại - 0")
+        else:
+            try:
+                self.updateUser(user,passwd,ip,port)
+                sendMsg(self.conn, "Kết nối thành công - 1")
+                sendMsg(self.conn,user)
+            except Exception as e:
+                sendMsg(self.conn, "Lỗi truy vấn. Đang thử lại... - 0")
+                traceback.print_exc()
     
     def searchService(self):
         while 1:
