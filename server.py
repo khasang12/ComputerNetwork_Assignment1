@@ -13,7 +13,7 @@ from utils.peer import *
 
 # Your External IPv4
 # HOST = "192.168.1.6"
-HOST = "192.168.1.6" 
+HOST = "192.168.1.4" 
 
 
 # TCPServer: Must be Opened before any peer connection begins

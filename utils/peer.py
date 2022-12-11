@@ -13,7 +13,7 @@ FORMAT = "utf-8"
 
 # Your External IPv4
 # EXTERNAL_IP_SERVER = '192.168.1.6'
-EXTERNAL_IP_SERVER = '192.168.1.6'
+EXTERNAL_IP_SERVER = '192.168.1.4'
 
 # This is The Peer Main Class act as A routing
 # It will contain Server side and Client Side
@@ -34,7 +34,7 @@ class Peer_Central():
         self.CONDITION = True
         self.startTime = 0
         self.endTime = 0
-        self.running = 1
+        self.running = True
         self.friendStatus = [] # Manage User Status
         self.HandleConnection = None # handle Connection
         self.Encoder = None
@@ -53,7 +53,7 @@ class Peer_Central():
     def checkConn(self):
         self.checkConn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        while True:
+        while self.running:
             if(START_CHECKING):
                 self.endTime = time.time()
                 elapsedTime = int(self.endTime - self.startTime)
@@ -108,13 +108,15 @@ class Peer_Central():
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         conn.connect((peer_ip, 81))
         # Send Request Chat
+        conn.send(self.userName.encode(FORMAT))
+        str = conn.recv(1024).decode(FORMAT)
         conn.send(self.Encoder.requestChat())
 
         # Wait Until Receive
         msg = conn.recv(1024).decode(FORMAT)
         msg = json.loads(msg)
         if(msg['code']==1):
-            self.HandleConnection.createClientThread(conn,self.ip_addr,self.port)
+            self.HandleConnection.createClientThread(conn,self.ip_addr,self.port,userName)
         else:
             print("Peer Decline Chat")
         self.HandleConnection.join()
@@ -166,7 +168,7 @@ class PeerServer(threading.Thread):
         self.CliendList = []
         self.peerName = peerName
         self.peerIP = peerIp
-        self.listenPort = 80 # change this for each peer
+        self.listenPort = 81 # change this for each peer if run locally
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((peerIp, int(self.listenPort)))
@@ -184,19 +186,21 @@ class PeerServer(threading.Thread):
                     if s is self.server:
                         
                             conn, addr = s.accept()
+                            opponent_name = conn.recv(1024).decode(FORMAT)
+                            conn.send("Thành công".encode(FORMAT))
                             print(conn)
                             """ conn.bind((self.peerIP,0))   """
-                            self.createClientThread(conn,addr[0],addr[1])
+                            self.createClientThread(conn,addr[0],addr[1],opponent_name)
                             self.ClientList.append(conn)
                     else:
                         print("Stuck Here")
             except Exception as e:
                 print(e)
 
-    def createClientThread(self,conn,cliIP, cliPort) :
+    def createClientThread(self,conn,cliIP, cliPort,opponent_name) :
         # Create A Thread For Handle That Connection
         # May be a new window
-        PeerClient(str(self.peerName),conn,cliIP,cliPort).start()
+        PeerClient(str(self.peerName),conn,cliIP,cliPort,opponent_name).start()
         self.CliendList.append(conn)
     def sendToAll(self,conn):
         pass
@@ -211,14 +215,16 @@ class PeerServer(threading.Thread):
 # This Class Maybe Handle Transfer
 class PeerClient(threading.Thread):
      # constructor method
-    def __init__(self, name,conn,ip,port):
+    def __init__(self, name,conn,ip,port,opponent_name):
         threading.Thread.__init__(self)
         # chat window which is currently hidden
         self.name = name
         self.conn = conn
         self.cip = ip
         self.port = port
+        self.opponent_name = opponent_name
         self.Encoder = Encode(ip,port)
+        self.running = True
 
     def run(self) :
         self.Window = Tk()
@@ -248,7 +254,7 @@ class PeerClient(threading.Thread):
         self.labelHead = Label(self.Window,
                                bg="#17202A",
                                fg="#EAECEE",
-                               text=self.name,
+                               text=self.opponent_name,
                                font="Helvetica 13 bold",
                                pady=5)
  
@@ -361,7 +367,7 @@ class PeerClient(threading.Thread):
     # function to receive messages 
     # This will handle request send from user
     def receive(self):
-        while True:
+        while self.running:
             # try:
             message = self.conn.recv(1024).decode(FORMAT)
             message = json.loads(message)
@@ -369,24 +375,24 @@ class PeerClient(threading.Thread):
             if message['type'] == 'Request':
                 # If it is Start Chat Request
                 if message['flag'] == "S":
-                    # Call UIn   
-                    diaglogResult = messagebox.askokcancel("There is Message Request","{} requested chat. Accept?".format(self.cip))
+                    # Call UIn
+                    diaglogResult = messagebox.askokcancel("There is Message Request","{} requested chat. Accept?".format(self.opponent_name))
                     if(diaglogResult):
                         self.conn.send(self.Encoder.acceptChat())
                     else:
                         self.conn.send(self.Encoder.declineChat())
                         self.Window.destroy()
                 elif message['flag'] == "E":
-                    messagebox.showwarning("Your peer ","{} has left the conversation. The chatbox will be closed after 2 seconds".format(self.cip))
+                    messagebox.showwarning("Your peer ","{} has left the conversation. The chatbox will be closed after 2 seconds".format(self.name))
                     time.sleep(2)
+                    self.running=False
                     self.Window.destroy()
                     
             elif  message['type'] == 'M':
                 # insert messages to text box
-                self.displayMessage("("+message["time"]+"):"+message['msg'])
+                self.displayMessage(self.opponent_name+" ("+message["time"]+"): "+message['msg'])
 
             elif message['type'] == 'F':
-                self.displayMessage("("+message["time"]+"):"+message['fname'])
                 filename = message['fname']
                 filesize = message['fsize']
                 filepath = askdirectory()+ '/' + filename
@@ -401,6 +407,7 @@ class PeerClient(threading.Thread):
                         f.write(bytes_read)
                         i += 1
 
+                self.displayMessage("("+message["time"]+"): Received "+message['fname'])
             """    except:
                 # an error will be printed on the command line or console if there's an error
                 print("An error occurred!")
@@ -415,7 +422,7 @@ class PeerClient(threading.Thread):
     # function to send messages
     def sendMessage(self):
         self.textCons.config(state=DISABLED)
-        while True and self.msg != "":
+        while self.running and self.msg != "":
             #############
             message = (f"{self.msg}")
             self.displayMessage(self.msg, send=True)        
@@ -427,7 +434,6 @@ class PeerClient(threading.Thread):
         self.textCons.config(state=DISABLED)
         filepath = askopenfilename()
         filesize = int(os.path.getsize(filepath))
-        self.displayMessage("You have sent file", send=True)
         filename = filepath.split("/")[-1]
         self.conn.send(self.Encoder.sendFileRequest(filename, filesize))     
         with open(filepath, 'rb') as f:
@@ -436,6 +442,8 @@ class PeerClient(threading.Thread):
                 if not bytes_read:
                     break
                 self.conn.sendall(bytes_read)
+
+        self.displayMessage("You have sent file", send=True)        
 
 
 def printOnlineUsers(data):
